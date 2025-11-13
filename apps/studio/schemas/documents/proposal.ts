@@ -43,7 +43,6 @@ const proposal = defineType({
       title: 'Prospect',
       type: 'reference',
       to: [{ type: 'company' }],
-      validation: (Rule: Rule) => Rule.required(),
       group: 'content',
     },
     {
