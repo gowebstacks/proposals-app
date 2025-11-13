@@ -1,30 +1,27 @@
-import { defineType } from 'sanity'
+import { defineType, Rule } from 'sanity'
+import { seo } from '../fields'
 
 const proposal = defineType({
   name: 'proposal',
   title: 'Proposal',
   type: 'document',
+  groups: [
+    { name: 'content', title: 'Content', default: true },
+    { name: 'seo', title: 'SEO' },
+  ],
   fields: [
     {
       name: 'title',
       title: 'Title',
       type: 'string',
-      validation: (Rule: any) => Rule.required(),
-    },
-    {
-      name: 'slug',
-      title: 'Slug',
-      type: 'slug',
-      options: {
-        source: 'title',
-        maxLength: 96,
-      },
-      validation: (Rule: any) => Rule.required(),
+      validation: (Rule: Rule) => Rule.required(),
+      group: 'content',
     },
     {
       name: 'description',
       title: 'Description',
       type: 'text',
+      group: 'content',
     },
     {
       name: 'status',
@@ -39,36 +36,22 @@ const proposal = defineType({
         ],
       },
       initialValue: 'draft',
+      group: 'content',
     },
     {
-      name: 'client',
-      title: 'Client',
-      type: 'object',
-      fields: [
-        {
-          name: 'name',
-          title: 'Client Name',
-          type: 'string',
-          validation: (Rule: any) => Rule.required(),
-        },
-        {
-          name: 'email',
-          title: 'Client Email',
-          type: 'string',
-          validation: (Rule: any) => Rule.email(),
-        },
-        {
-          name: 'company',
-          title: 'Company',
-          type: 'string',
-        },
-      ],
+      name: 'company',
+      title: 'Prospect',
+      type: 'reference',
+      to: [{ type: 'company' }],
+      validation: (Rule: Rule) => Rule.required(),
+      group: 'content',
     },
     {
       name: 'amount',
       title: 'Amount',
       type: 'number',
-      validation: (Rule: any) => Rule.positive(),
+      validation: (Rule: Rule) => Rule.positive(),
+      group: 'content',
     },
     {
       name: 'currency',
@@ -82,6 +65,7 @@ const proposal = defineType({
         ],
       },
       initialValue: 'USD',
+      group: 'content',
     },
     {
       name: 'content',
@@ -102,7 +86,20 @@ const proposal = defineType({
           ],
         },
       ],
+      group: 'content',
     },
+    {
+      name: 'googleDoc',
+      title: 'Google Doc URL',
+      type: 'url',
+      description: 'Link to the Google Doc for this proposal',
+      validation: (Rule: Rule) =>
+        Rule.uri({
+          scheme: ['http', 'https'],
+        }),
+      group: 'content',
+    },
+    seo,
     {
       name: 'createdAt',
       title: 'Created At',
@@ -120,4 +117,4 @@ const proposal = defineType({
   ],
 })
 
-export const schemaTypes = [proposal]
+export default proposal

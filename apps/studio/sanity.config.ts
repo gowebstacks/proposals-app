@@ -7,12 +7,12 @@ export default defineConfig({
   name: 'default',
   title: 'Proposals App Studio',
 
-  projectId: 'your-project-id',
-  dataset: 'production',
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
+  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET,
 
   plugins: [deskTool(), visionTool()],
 
-  schema: {
+  schema: { 
     types: schemaTypes,
   },
 })
