@@ -3,7 +3,9 @@
   "ui": "tui",
   "globalEnv": [
     "GOOGLE_CLIENT_SECRET",
-    "GOOGLE_CLIENT_ID"
+    "GOOGLE_CLIENT_ID",
+    "SANITY_API_TOKEN",
+    "BRANDFETCH_API_KEY"
   ],
   "tasks": {
     "build": {

@@ -3,6 +3,7 @@ import { deskTool } from 'sanity/desk'
 import { visionTool } from '@sanity/vision'
 import { schemaTypes } from './schemas'
 import { SyncWithGoogleDocAction } from './actions/syncWithGoogleDoc'
+import { FetchBrandAssetsAction } from './actions/fetchBrandAssets'
 import type { DocumentActionComponent } from 'sanity'
 
 export default defineConfig({
@@ -16,6 +17,9 @@ export default defineConfig({
     actions: (prev: DocumentActionComponent[], { schemaType }: { schemaType: string }) => {
       if (schemaType === 'proposal') {
         return [...prev, SyncWithGoogleDocAction]
+      }
+      if (schemaType === 'company') {
+        return [...prev, FetchBrandAssetsAction]
       }
       return prev
     },
