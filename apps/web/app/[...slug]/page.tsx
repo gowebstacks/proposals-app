@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import { client, groq } from '@/lib/sanity'
 import ProposalContent from '@/components/ProposalContent'
-import PasswordProtection from '@/components/PasswordProtection'
 
 interface ProposalPageProps {
   params: Promise<{ slug: string[] }>
@@ -47,7 +46,7 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
   // Find active tab index based on tab slug or default to 0
   let activeTabIndex = 0
   if (tabSlug && proposal.tabs) {
-    const foundTabIndex = proposal.tabs.findIndex((tab: any) => 
+    const foundTabIndex = proposal.tabs.findIndex((tab: { title?: string }) => 
       tab.title?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') === tabSlug
     )
     if (foundTabIndex !== -1) {
@@ -56,16 +55,14 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
   }
 
   return (
-    <PasswordProtection passwords={proposal.passwords}>
-      <ProposalContent
-        tabs={proposal.tabs || []}
-        proposalSlug={proposalSlug}
-        activeTabIndex={activeTabIndex}
-        company={proposal.company}
-        googleDocUrl={proposal.googleDoc}
-        preparedBy={proposal.preparedBy}
-      />
-    </PasswordProtection>
+    <ProposalContent
+      tabs={proposal.tabs || []}
+      proposalSlug={proposalSlug}
+      activeTabIndex={activeTabIndex}
+      company={proposal.company}
+      googleDocUrl={proposal.googleDoc}
+      preparedBy={proposal.preparedBy}
+    />
   )
 }
 
