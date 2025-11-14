@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
+// import dynamic from 'next/dynamic' // Temporarily disabled
 import { Tabs } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-import { Sparkles, FileText } from 'lucide-react'
+// import { Button } from '@/components/ui/button' // Temporarily disabled
+import { FileText } from 'lucide-react' // Sparkles temporarily disabled
 import Image from 'next/image'
 import PortableText from '@/components/PortableText'
 import type { TypedObject } from '@portabletext/types'
@@ -13,15 +13,15 @@ import { urlForImage } from '@/lib/sanity'
 import { RoomProvider } from '@/lib/liveblocks'
 import { cn } from '@/lib/utils'
 
-// Dynamic import to avoid SSR issues with Liveblocks
-const LiveblocksCopilot = dynamic(() => import('@/components/LiveblocksCopilot'), {
-  ssr: false,
-  loading: () => (
-    <div className="fixed bottom-4 right-4 z-50 w-80 h-32 bg-white border border-gray-200 rounded-lg shadow-lg flex items-center justify-center">
-      <div className="text-sm text-gray-500">Loading comments...</div>
-    </div>
-  )
-})
+// Dynamic import to avoid SSR issues with Liveblocks (temporarily disabled)
+// const LiveblocksCopilot = dynamic(() => import('@/components/LiveblocksCopilot'), {
+//   ssr: false,
+//   loading: () => (
+//     <div className="fixed bottom-4 right-4 z-50 w-80 h-32 bg-white border border-gray-200 rounded-lg shadow-lg flex items-center justify-center">
+//       <div className="text-sm text-gray-500">Loading comments...</div>
+//     </div>
+//   )
+// })
 
 
 interface Tab {
@@ -222,7 +222,7 @@ export default function ProposalContent({
         "fixed top-0 left-0 z-40 transition-all duration-200",
         isScrolled ? "bg-white/95 backdrop-blur-sm border-b border-gray-200" : "bg-white"
       )} style={{ width: 'calc(100% - 320px)' }}>
-        <div className="px-8 py-6 flex items-center justify-between">
+        <div className="px-8 py-6 flex items-center justify-start">
           <Image 
             src="/webstacks-logotype-onlight.svg" 
             alt="Webstacks" 
@@ -230,18 +230,6 @@ export default function ProposalContent({
             height={20}
             className="h-5 w-auto"
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              // Dispatch custom event to open chat
-              window.dispatchEvent(new CustomEvent('open-chat'))
-            }}
-            className="gap-2"
-          >
-            <Sparkles size={16} />
-            Ask AI
-          </Button>
         </div>
       </div>
       
@@ -518,37 +506,7 @@ export default function ProposalContent({
       </div>
       </div>
 
-      {/* Liveblocks Copilot for comments and feedback */}
-      <LiveblocksCopilot
-        roomId={`proposal-${proposalSlug}`}
-        userInfo={{
-          name: 'Anonymous User',
-          email: 'user@example.com'
-        }}
-        proposalData={{
-          slug: proposalSlug,
-          currentTab: {
-            title: tabs[activeTabIndex]?.title,
-            index: activeTabIndex
-          },
-          tabs: tabs.map((tab, index) => ({
-            title: tab.title,
-            index: index,
-            hasContent: !!tab.content && tab.content.length > 0
-          })),
-          company: {
-            name: company?.name,
-            id: company?._id
-          },
-          preparedBy: preparedBy ? {
-            name: `${preparedBy.firstName} ${preparedBy.lastName}`,
-            firstName: preparedBy.firstName,
-            lastName: preparedBy.lastName,
-            role: preparedBy.role
-          } : null,
-          googleDocUrl: googleDocUrl
-        }}
-      />
+      {/* Liveblocks Copilot temporarily hidden */}
       </div>
     </RoomProvider>
   )
