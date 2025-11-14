@@ -12,6 +12,7 @@ export const schemaTypes = [
   
   // Field schemas (reusable components)
   fields.seo,
+  fields.canvas,
   
   // Section schemas (page sections)
   // sections.exampleSection,

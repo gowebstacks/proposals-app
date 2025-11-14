@@ -67,24 +67,11 @@ const proposal = defineType({
       group: 'content',
     },
     {
-      name: 'content',
-      title: 'Content',
+      name: 'tabs',
+      title: 'Tabs',
       type: 'array',
-      of: [
-        {
-          type: 'block',
-        },
-        {
-          type: 'image',
-          fields: [
-            {
-              name: 'alt',
-              title: 'Alternative text',
-              type: 'string',
-            },
-          ],
-        },
-      ],
+      of: [{ type: 'canvas' }],
+      description: 'Content tabs for this proposal',
       group: 'content',
     },
     {
