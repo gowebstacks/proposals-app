@@ -20,6 +20,7 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
     title,
     tabs,
     googleDoc,
+    passwords,
     preparedBy->{
       _id,
       firstName,
@@ -45,7 +46,7 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
   // Find active tab index based on tab slug or default to 0
   let activeTabIndex = 0
   if (tabSlug && proposal.tabs) {
-    const foundTabIndex = proposal.tabs.findIndex((tab: any) => 
+    const foundTabIndex = proposal.tabs.findIndex((tab: { title?: string }) => 
       tab.title?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') === tabSlug
     )
     if (foundTabIndex !== -1) {
