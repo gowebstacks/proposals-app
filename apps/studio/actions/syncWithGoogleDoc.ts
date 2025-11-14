@@ -58,7 +58,6 @@ function extractTextFromStructuralElements(elements?: GoogleDocsStructuralElemen
         if (pe.textRun?.content) {
           const cleaned = pe.textRun.content
             .replace(/\n/g, ' ')
-            .replace(/[^\t\n\r\u0020-\u007E]/g, ' ')
             .replace(/\s{2,}/g, ' ')
             .trim()
           if (cleaned) parts.push(cleaned)
@@ -345,7 +344,10 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
                   .replace(/\n+$/, '') // Remove trailing newlines only
               }
 
-              textContent = textContent.replace(/[^\t\n\r\u0020-\u007E]/g, ' ')
+              // Preserve common typographic characters: smart quotes, em/en dashes, etc.
+              // Only remove control characters (except tab \t, newline \n, carriage return \r)
+              // eslint-disable-next-line no-control-regex
+              textContent = textContent.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
 
               // Convert remaining lone newlines inside a paragraph to single spaces
               // since we already create separate blocks per paragraph
@@ -521,7 +523,9 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
               .replace(/\n+$/, '') // Remove trailing newlines only
           }
 
-          textContent = textContent.replace(/[\x00-\x08\x0A-\x1F\x7F]/g, ' ')
+          // Preserve typographic characters, only remove control chars
+          // eslint-disable-next-line no-control-regex
+          textContent = textContent.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
 
           // Convert remaining lone newlines inside a paragraph to single spaces
           textContent = textContent.replace(/\n/g, ' ')
