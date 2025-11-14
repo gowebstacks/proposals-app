@@ -154,13 +154,10 @@ export default function ProposalContent({
 
   return (
     <div className="min-h-screen bg-white text-black">
-      {/* Gradient Background Effect */}
-      <div className="fixed inset-0 bg-gradient-to-br from-white via-white to-gray-100 opacity-50" />
-      
       {/* Fixed Header with Logo */}
       <div className={cn(
         "fixed top-0 left-0 right-0 z-40 transition-all duration-200",
-        isScrolled ? "bg-white/95 backdrop-blur-sm border-b border-gray-200" : "bg-transparent"
+        isScrolled ? "bg-white/95 backdrop-blur-sm border-b border-gray-200" : "bg-white"
       )}>
         <div className="px-8 py-6">
           <Image 
@@ -176,7 +173,7 @@ export default function ProposalContent({
       <div className="relative">
         <div className="grid grid-cols-[1fr_320px] min-h-screen">
           {/* Main Content Area */}
-          <div className="px-8 pt-24">
+          <div className="bg-white px-8 pt-24">
             <div className="grid place-items-center min-h-full">
               <div style={{ maxWidth: '880px' }}>
                 {/* Main Content */}
