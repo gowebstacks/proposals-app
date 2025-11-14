@@ -23,11 +23,20 @@ export const metadata: Metadata = {
     description: "Sign in to your Webstacks account.",
     type: "website",
     siteName: "Webstacks",
+    images: [
+      {
+        url: "/login-opengraph.png",
+        width: 1200,
+        height: 630,
+        alt: "Webstacks Login",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Login – Webstacks",
     description: "Sign in to your Webstacks account.",
+    images: ["/login-opengraph.png"],
   },
   other: {
     "theme-color": "#FFFFFF",
