@@ -33,7 +33,7 @@ const loadSegment = (callback: () => void) => {
 const isSegmentLoaded = () => !!window.analytics;
 
 const trackPage = (referrer: string, url: string, title: string) => {
-  if (isSegmentLoaded()) {
+  if (isSegmentLoaded() && window.analytics) {
     window.analytics.page({
       referrer,
       url,
