@@ -14,6 +14,8 @@ interface PortableTextBlock {
   children: PortableTextChild[]
   _key?: string
   markDefs?: Array<{ _key: string; _type: string }>
+  listItem?: 'bullet' | 'number'
+  level?: number
 }
 
 const canvas = defineType({

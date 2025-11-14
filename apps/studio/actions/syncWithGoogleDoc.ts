@@ -35,6 +35,11 @@ interface GoogleDocsParagraph {
     namedStyleType?: string
     headingId?: string
   }
+  // Present when this paragraph is a list item
+  bullet?: {
+    listId?: string
+    nestingLevel?: number
+  }
 }
 
 interface GoogleDocsStructuralElement {
@@ -68,6 +73,14 @@ interface GoogleDocsDocument {
     content?: GoogleDocsStructuralElement[]
   }
   tabs?: GoogleDocsTab[]
+  // Optional list metadata mapping listId -> properties
+  lists?: Record<string, {
+    listProperties?: {
+      nestingLevels?: Array<{
+        glyphType?: string
+      }>
+    }
+  }>
 }
 
 // Extract document ID from Google Doc URL or a raw ID value
@@ -347,12 +360,24 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
 
           // Only add block if there's actual content
           if (normalizedChildren.some(child => child.text.trim())) {
+            const bullet = (paragraph as { bullet?: { listId?: string; nestingLevel?: number } }).bullet
+            let listItem: 'bullet' | 'number' | undefined
+            let level: number | undefined
+            if (bullet) {
+              const listId = bullet.listId
+              const nestingLevel = typeof bullet.nestingLevel === 'number' ? bullet.nestingLevel : 0
+              const glyphType = listId && doc.lists && doc.lists[listId]?.listProperties?.nestingLevels?.[nestingLevel]?.glyphType
+              listItem = glyphType && /DECIMAL|ROMAN|ALPHA|NUMBER/i.test(String(glyphType)) ? 'number' : 'bullet'
+              level = nestingLevel + 1
+            }
             const block = {
               _type: 'block' as const,
-              style: blockStyle,
+              style: bullet ? 'normal' : blockStyle,
               _key: genKey(),
               markDefs,
               children: normalizedChildren,
+              ...(listItem ? { listItem } : {}),
+              ...(level ? { level } : {}),
             }
             console.log('Created block:', JSON.stringify(block, null, 2))
             blocks.push(block)
@@ -488,12 +513,24 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
 
       // Only add block if there's actual content
       if (normalizedChildren.some(child => child.text.trim())) {
+        const bullet = (paragraph as { bullet?: { listId?: string; nestingLevel?: number } }).bullet
+        let listItem: 'bullet' | 'number' | undefined
+        let level: number | undefined
+        if (bullet) {
+          const listId = bullet.listId
+          const nestingLevel = typeof bullet.nestingLevel === 'number' ? bullet.nestingLevel : 0
+          const glyphType = listId && doc.lists && doc.lists[listId]?.listProperties?.nestingLevels?.[nestingLevel]?.glyphType
+          listItem = glyphType && /DECIMAL|ROMAN|ALPHA|NUMBER/i.test(String(glyphType)) ? 'number' : 'bullet'
+          level = nestingLevel + 1
+        }
         const block = {
           _type: 'block' as const,
-          style: blockStyle,
+          style: bullet ? 'normal' : blockStyle,
           _key: genKey(),
           markDefs,
           children: normalizedChildren,
+          ...(listItem ? { listItem } : {}),
+          ...(level ? { level } : {}),
         }
         console.log('Fallback created block:', JSON.stringify(block, null, 2))
         blocks.push(block)
