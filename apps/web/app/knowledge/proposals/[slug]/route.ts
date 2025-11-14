@@ -29,7 +29,7 @@ function ptToPlainText(blocks: any[] | undefined): string {
     .join("\n\n")
 }
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   // Simple token gate: only requests with the correct token can access
   const url = new URL(req.url)
   const token = url.searchParams.get("token")
@@ -40,7 +40,8 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
     return new Response("Not Found", { status: 404 })
   }
 
-  const slug = decodeURIComponent(params.slug)
+  const { slug: rawSlug } = await params
+  const slug = decodeURIComponent(rawSlug)
   const proposal = await getProposalBySlug(slug)
 
   if (!proposal) {
