@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,21 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [showVerification, setShowVerification] = useState(false)
   const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', ''])
+
+  useEffect(() => {
+    // Update document title dynamically like Vercel
+    document.title = showVerification ? 'Verification – Webstacks' : 'Login – Webstacks'
+    
+    // Update meta description
+    const metaDescription = document.querySelector('meta[name="description"]')
+    if (metaDescription) {
+      metaDescription.setAttribute('content', 
+        showVerification 
+          ? 'Enter the verification code sent to your email to complete sign in.'
+          : 'Sign in to your Webstacks account.'
+      )
+    }
+  }, [showVerification])
 
   const handleContinue = async () => {
     if (!email) return
