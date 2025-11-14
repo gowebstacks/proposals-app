@@ -211,43 +211,39 @@ export default function ProposalContent({
                               
                               {/* Previous/Next Navigation Footer */}
                               <div className="mt-16 pt-8 border-t border-gray-200">
-                                <div className="flex justify-between items-center">
+                                <div className="flex justify-between items-start gap-6">
                                   {/* Previous Page */}
-                                  {activeTabIndex > 0 ? (
-                                    <button
-                                      onClick={() => navigateToTab(activeTabIndex - 1)}
-                                      disabled={isNavigating}
-                                      className="flex items-center text-gray-600 hover:text-gray-900 transition-all duration-200 group hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <svg className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                      </svg>
-                                      <div className="text-left">
-                                        <div className="text-xs text-gray-500 uppercase tracking-wider">Previous</div>
-                                        <div className="font-medium">{tabs[activeTabIndex - 1]?.title || `Section ${activeTabIndex}`}</div>
-                                      </div>
-                                    </button>
-                                  ) : (
-                                    <div></div>
+                                  {activeTabIndex > 0 && (
+                                    <div>
+                                      <div className="text-xs text-gray-500 uppercase tracking-wider mb-3">Previous</div>
+                                      <button
+                                        onClick={() => navigateToTab(activeTabIndex - 1)}
+                                        disabled={isNavigating}
+                                        className="inline-flex items-center gap-3 px-6 py-3 bg-black text-white rounded-full hover:bg-blue-600 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                        <span className="font-medium text-base">{tabs[activeTabIndex - 1]?.title || `Section ${activeTabIndex}`}</span>
+                                      </button>
+                                    </div>
                                   )}
                                   
                                   {/* Next Page */}
-                                  {activeTabIndex < tabs.length - 1 ? (
-                                    <button
-                                      onClick={() => navigateToTab(activeTabIndex + 1)}
-                                      disabled={isNavigating}
-                                      className="flex items-center text-gray-600 hover:text-gray-900 transition-all duration-200 group hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <div className="text-right">
-                                        <div className="text-xs text-gray-500 uppercase tracking-wider">Next</div>
-                                        <div className="font-medium">{tabs[activeTabIndex + 1]?.title || `Section ${activeTabIndex + 2}`}</div>
-                                      </div>
-                                      <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                      </svg>
-                                    </button>
-                                  ) : (
-                                    <div></div>
+                                  {activeTabIndex < tabs.length - 1 && (
+                                    <div className="ml-auto">
+                                      <div className="text-xs text-gray-500 uppercase tracking-wider mb-3">Up Next</div>
+                                      <button
+                                        onClick={() => navigateToTab(activeTabIndex + 1)}
+                                        disabled={isNavigating}
+                                        className="inline-flex items-center gap-3 px-6 py-3 bg-black text-white rounded-full hover:bg-blue-600 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        <span className="font-medium text-base">{tabs[activeTabIndex + 1]?.title || `Section ${activeTabIndex + 2}`}</span>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
                               </div>
