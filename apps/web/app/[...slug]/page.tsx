@@ -1,9 +1,59 @@
 import { notFound } from 'next/navigation'
+import { Metadata } from 'next'
 import { client, groq } from '@/lib/sanity'
 import ProposalContent from '@/components/ProposalContent'
 
 interface ProposalPageProps {
   params: Promise<{ slug: string[] }>
+}
+
+// Site configuration - update with your actual domain
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://proposals.webstacks.com'
+
+export async function generateMetadata({ params }: ProposalPageProps): Promise<Metadata> {
+  const { slug } = await params
+  const proposalSlug = slug?.[0] || ''
+  
+  // Fetch proposal SEO data
+  const proposal = await client.fetch(groq`*[_type == "proposal" && seo.slug.current == $slug][0]{
+    title,
+    seo
+  }`, { slug: proposalSlug })
+
+  if (!proposal) {
+    return {
+      title: 'Proposal Not Found',
+      description: 'The requested proposal could not be found',
+    }
+  }
+
+  const seo = proposal.seo
+  const title = seo?.pageTitle || proposal.title || 'Proposal'
+  const description = seo?.pageDescription || ''
+  const ogImage = seo?.openGraphImage?.asset?.url
+  
+  const url = `${SITE_URL}/${proposalSlug}`
+  const index = !seo?.noIndex
+  const follow = !seo?.noFollow
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url,
+      images: ogImage ? [{ url: ogImage }] : [],
+    },
+    robots: {
+      index,
+      follow,
+    },
+    metadataBase: new URL(SITE_URL),
+    alternates: {
+      canonical: url,
+    },
+  }
 }
 
 export default async function ProposalPage({ params }: ProposalPageProps) {
