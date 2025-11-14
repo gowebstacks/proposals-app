@@ -10,6 +10,15 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: 'https://www.webstacks.com',
+        permanent: true,
+      },
+    ]
+  },
 };
 
 export default nextConfig;
