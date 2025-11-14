@@ -18,52 +18,10 @@ const proposal = defineType({
       group: 'content',
     },
     {
-      name: 'description',
-      title: 'Description',
-      type: 'text',
-      group: 'content',
-    },
-    {
-      name: 'status',
-      title: 'Status',
-      type: 'string',
-      options: {
-        list: [
-          { title: 'Draft', value: 'draft' },
-          { title: 'Active', value: 'active' },
-          { title: 'Completed', value: 'completed' },
-          { title: 'Archived', value: 'archived' },
-        ],
-      },
-      initialValue: 'draft',
-      group: 'content',
-    },
-    {
       name: 'company',
       title: 'Prospect',
       type: 'reference',
       to: [{ type: 'company' }],
-      group: 'content',
-    },
-    {
-      name: 'amount',
-      title: 'Amount',
-      type: 'number',
-      validation: (Rule: Rule) => Rule.positive(),
-      group: 'content',
-    },
-    {
-      name: 'currency',
-      title: 'Currency',
-      type: 'string',
-      options: {
-        list: [
-          { title: 'USD', value: 'USD' },
-          { title: 'EUR', value: 'EUR' },
-          { title: 'GBP', value: 'GBP' },
-        ],
-      },
-      initialValue: 'USD',
       group: 'content',
     },
     {

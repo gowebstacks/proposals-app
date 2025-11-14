@@ -254,21 +254,41 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
               console.log(`Raw text content: "${textContent}"`)
               console.log(`Text style:`, textStyle)
               
-              // Clean up text content - remove excessive whitespace but preserve single spaces
-              // Don't trim the very beginning of the first element to preserve indentation
-              if (index === 0) {
-                textContent = textContent.replace(/\s+$/g, '') // Only trim end
-              } else {
-                textContent = textContent.replace(/^\s+|\s+$/g, '') // Trim both ends for subsequent elements
-              }
+              // Check if this element has formatting (marks)
+              const hasFormatting = textStyle?.bold || textStyle?.italic || textStyle?.underline || textStyle?.link?.url
               
-              // Skip empty content after cleaning
-              if (!textContent) {
+              // Clean up text content - be extremely careful about spaces around formatted text
+              if (hasFormatting) {
+                // For formatted text, ONLY remove excessive newlines
+                // PRESERVE ALL spaces to maintain spacing around formatted words
+                textContent = textContent
+                  .replace(/\n{3,}/g, '\n\n') // Reduce multiple newlines to double
+                  .replace(/\n+$/, '') // Remove trailing newlines only
+              } else {
+                // For plain text, do not strip spaces; only normalize control chars and trailing newlines
+                textContent = textContent
+                  .replace(/\n{3,}/g, '\n\n') // Reduce multiple newlines to double
+                  .replace(/\n+$/, '') // Remove trailing newlines only
+              }
+
+              // Normalize control characters that can break spacing
+              textContent = textContent.replace(/[\r\v]/g, ' ')
+
+              // Convert remaining lone newlines inside a paragraph to single spaces
+              // since we already create separate blocks per paragraph
+              textContent = textContent.replace(/\n/g, ' ')
+              
+              // Preserve whitespace-only spans (e.g., the space between plain and bold runs)
+              if (textContent === '') {
                 console.log('Skipping empty text content after cleanup')
                 return
               }
+              if (/^\s+$/.test(textContent)) {
+                // Collapse to a single space to avoid multiple adjacent whitespace spans
+                textContent = ' '
+              }
               
-              console.log(`Cleaned text content: "${textContent}"`)
+              console.log(`Cleaned text content: "${textContent}" (hasFormatting: ${hasFormatting})`)
               
               const marks: string[] = []
               
@@ -310,14 +330,29 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
             }
           })
           
+          // Normalize adjacency: ensure a space between spans when neither side has boundary whitespace
+          const normalizedChildren: Array<{ _type: 'span'; text: string; _key: string; marks: string[] }> = []
+          for (const ch of children) {
+            const prev = normalizedChildren[normalizedChildren.length - 1]
+            if (prev) {
+              const prevEndsWithWs = /\s$/.test(prev.text)
+              const currStartsWithWs = /^\s/.test(ch.text)
+              if (!prevEndsWithWs && !currStartsWithWs) {
+                // Append a space to previous text to ensure spacing between runs
+                prev.text = prev.text + ' '
+              }
+            }
+            normalizedChildren.push(ch)
+          }
+
           // Only add block if there's actual content
-          if (children.some(child => child.text.trim())) {
+          if (normalizedChildren.some(child => child.text.trim())) {
             const block = {
               _type: 'block' as const,
               style: blockStyle,
               _key: genKey(),
               markDefs,
-              children
+              children: normalizedChildren,
             }
             console.log('Created block:', JSON.stringify(block, null, 2))
             blocks.push(block)
@@ -363,21 +398,39 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
           console.log(`Fallback raw text content: "${textContent}"`)
           console.log(`Fallback text style:`, textStyle)
           
-          // Clean up text content - remove excessive whitespace but preserve single spaces
-          // Don't trim the very beginning of the first element to preserve indentation
-          if (index === 0) {
-            textContent = textContent.replace(/\s+$/g, '') // Only trim end
-          } else {
-            textContent = textContent.replace(/^\s+|\s+$/g, '') // Trim both ends for subsequent elements
-          }
+          // Check if this element has formatting (marks)
+          const hasFormatting = textStyle?.bold || textStyle?.italic || textStyle?.underline || textStyle?.link?.url
           
-          // Skip empty content after cleaning
-          if (!textContent) {
+          // Clean up text content - be extremely careful about spaces around formatted text
+          if (hasFormatting) {
+            // For formatted text, ONLY remove excessive newlines
+            // PRESERVE ALL spaces to maintain spacing around formatted words
+            textContent = textContent
+              .replace(/\n{3,}/g, '\n\n') // Reduce multiple newlines to double
+              .replace(/\n+$/, '') // Remove trailing newlines only
+          } else {
+            // For plain text, do not strip spaces; only normalize control chars and trailing newlines
+            textContent = textContent
+              .replace(/\n{3,}/g, '\n\n') // Reduce multiple newlines to double
+              .replace(/\n+$/, '') // Remove trailing newlines only
+          }
+
+          // Normalize control characters that can break spacing
+          textContent = textContent.replace(/[\u000b\r]/g, ' ')
+
+          // Convert remaining lone newlines inside a paragraph to single spaces
+          textContent = textContent.replace(/\n/g, ' ')
+          
+          // Preserve whitespace-only spans
+          if (textContent === '') {
             console.log('Fallback skipping empty text content after cleanup')
             return
           }
+          if (/^\s+$/.test(textContent)) {
+            textContent = ' '
+          }
           
-          console.log(`Fallback cleaned text content: "${textContent}"`)
+          console.log(`Fallback cleaned text content: "${textContent}" (hasFormatting: ${hasFormatting})`)
           
           const marks: string[] = []
           
@@ -419,14 +472,28 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
         }
       })
       
+      // Normalize adjacency in fallback as well
+      const normalizedChildren: Array<{ _type: 'span'; text: string; _key: string; marks: string[] }> = []
+      for (const ch of children) {
+        const prev = normalizedChildren[normalizedChildren.length - 1]
+        if (prev) {
+          const prevEndsWithWs = /\s$/.test(prev.text)
+          const currStartsWithWs = /^\s/.test(ch.text)
+          if (!prevEndsWithWs && !currStartsWithWs) {
+            prev.text = prev.text + ' '
+          }
+        }
+        normalizedChildren.push(ch)
+      }
+
       // Only add block if there's actual content
-      if (children.some(child => child.text.trim())) {
+      if (normalizedChildren.some(child => child.text.trim())) {
         const block = {
           _type: 'block' as const,
           style: blockStyle,
           _key: genKey(),
           markDefs,
-          children
+          children: normalizedChildren,
         }
         console.log('Fallback created block:', JSON.stringify(block, null, 2))
         blocks.push(block)

@@ -33,40 +33,40 @@ const components: Partial<PortableTextReactComponents> = {
   block: {
     h1: ({ children }: { children?: React.ReactNode }) => {
       console.log('🎯 Rendering h1 block:', children)
-      return <h1 className="text-4xl font-bold text-black mb-4">{children}</h1>
+      return <h1 className="text-5xl font-light text-black mb-8 leading-tight tracking-tight">{children}</h1>
     },
     h2: ({ children }: { children?: React.ReactNode }) => {
       console.log('🎯 Rendering h2 block:', children)
-      return <h2 className="text-3xl font-semibold text-black mb-3">{children}</h2>
+      return <h2 className="text-4xl font-light text-black mb-6 leading-tight tracking-tight">{children}</h2>
     },
     h3: ({ children }: { children?: React.ReactNode }) => {
       console.log('🎯 Rendering h3 block:', children)
-      return <h3 className="text-2xl font-medium text-black mb-2">{children}</h3>
+      return <h3 className="text-2xl font-medium text-black mb-4 leading-tight">{children}</h3>
     },
     normal: ({ children }: { children?: React.ReactNode }) => {
       console.log('📄 Rendering normal block:', children)
-      return <p className="text-gray-700 leading-relaxed mb-4">{children}</p>
+      return <p className="text-lg text-gray-800 leading-relaxed mb-6 font-light">{children}</p>
     },
   },
   marks: {
     strong: ({ children }: { children?: React.ReactNode }) => {
       console.log('💪 Rendering strong mark:', children)
-      return <strong className="font-bold text-black">{children}</strong>
+      return <strong className="font-semibold text-black">{children}</strong>
     },
     em: ({ children }: { children?: React.ReactNode }) => {
       console.log('📝 Rendering em mark:', children)
-      return <em className="italic">{children}</em>
+      return <em className="italic font-medium">{children}</em>
     },
     underline: ({ children }: { children?: React.ReactNode }) => {
       console.log('📏 Rendering underline mark:', children)
-      return <u className="underline">{children}</u>
+      return <u className="underline decoration-2 underline-offset-2">{children}</u>
     },
     link: ({ children, value }: { children?: React.ReactNode; value?: { href?: string } }) => {
       console.log('🔗 Rendering link mark:', { children, href: value?.href })
       return (
         <a 
           href={value?.href} 
-          className="text-blue-600 hover:text-blue-700 underline"
+          className="text-blue-600 hover:text-blue-700 underline decoration-2 underline-offset-2 transition-colors"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -124,7 +124,7 @@ export default function PortableText({ value, className }: PortableTextProps) {
   })
 
   return (
-    <div className={cn('prose prose-gray max-w-none', className)}>
+    <div className={cn('max-w-none', className)}>
       <PortableTextComponent value={value} components={components} />
     </div>
   )

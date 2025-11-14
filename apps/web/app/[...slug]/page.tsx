@@ -19,10 +19,6 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
   return (
     <ProposalContent
       tabs={proposal.tabs || []}
-      description={proposal.description}
-      company={proposal.company}
-      amount={proposal.amount}
-      currency={proposal.currency}
     />
   )
 }
