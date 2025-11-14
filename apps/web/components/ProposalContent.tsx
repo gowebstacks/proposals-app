@@ -245,41 +245,41 @@ export default function ProposalContent({
                               
                               {/* Previous/Next Navigation Footer */}
                               <div className="mt-16 pt-8 border-t border-gray-200">
-                                <div className="flex justify-between items-center">
+                                <div className="flex justify-between items-start">
                                   {/* Previous Page */}
-                                  {activeTabIndex > 0 ? (
-                                    <button
-                                      onClick={() => navigateToTab(activeTabIndex - 1)}
-                                      className="flex items-center text-gray-600 hover:text-gray-900 transition-colors group"
-                                    >
-                                      <svg className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                      </svg>
-                                      <div className="text-left">
-                                        <div className="text-sm text-gray-500">Previous</div>
-                                        <div className="font-medium">{tabs[activeTabIndex - 1]?.title || `Section ${activeTabIndex}`}</div>
+                                  {activeTabIndex > 0 && (
+                                    <div>
+                                      <div className="text-xs font-semibold text-black uppercase tracking-wider mb-3">
+                                        Previous
                                       </div>
-                                    </button>
-                                  ) : (
-                                    <div></div>
+                                      <button
+                                        onClick={() => navigateToTab(activeTabIndex - 1)}
+                                        className="flex items-center px-6 h-10 bg-black text-white rounded-full hover:bg-blue-600 transition-colors"
+                                      >
+                                        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 12H5m0 0l7 7m-7-7l7-7" />
+                                        </svg>
+                                        <span className="font-medium text-base">{tabs[activeTabIndex - 1]?.title || `Section ${activeTabIndex}`}</span>
+                                      </button>
+                                    </div>
                                   )}
                                   
                                   {/* Next Page */}
-                                  {activeTabIndex < tabs.length - 1 ? (
-                                    <button
-                                      onClick={() => navigateToTab(activeTabIndex + 1)}
-                                      className="flex items-center text-gray-600 hover:text-gray-900 transition-colors group"
-                                    >
-                                      <div className="text-right">
-                                        <div className="text-sm text-gray-500">Next</div>
-                                        <div className="font-medium">{tabs[activeTabIndex + 1]?.title || `Section ${activeTabIndex + 2}`}</div>
+                                  {activeTabIndex < tabs.length - 1 && (
+                                    <div className="ml-auto">
+                                      <div className="text-xs font-semibold text-black uppercase tracking-wider mb-3">
+                                        Up Next
                                       </div>
-                                      <svg className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                      </svg>
-                                    </button>
-                                  ) : (
-                                    <div></div>
+                                      <button
+                                        onClick={() => navigateToTab(activeTabIndex + 1)}
+                                        className="flex items-center px-6 h-10 bg-black text-white rounded-full hover:bg-blue-600 transition-colors"
+                                      >
+                                        <span className="font-medium text-base">{tabs[activeTabIndex + 1]?.title || `Section ${activeTabIndex + 2}`}</span>
+                                        <svg className="w-5 h-5 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14m0 0l-7-7m7 7l-7 7" />
+                                        </svg>
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -411,12 +411,6 @@ export default function ProposalContent({
                           : "text-white hover:bg-white hover:bg-opacity-10"
                       )}
                     >
-                      {/* Document icon */}
-                      <div className="flex-shrink-0 mr-3">
-                        <div className="w-4 h-4 border border-white rounded-sm flex items-center justify-center opacity-100">
-                          <div className="w-2 h-2 border-t border-white"></div>
-                        </div>
-                      </div>
                       <span className="truncate">{section.title}</span>
                     </button>
                     
@@ -477,9 +471,13 @@ export default function ProposalContent({
                   rel="noopener noreferrer"
                   className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium text-black bg-white rounded-md hover:bg-gray-100 transition-colors duration-200"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                  </svg>
+                  <Image 
+                    src="/Google Docs Logo.svg" 
+                    alt="Google Docs" 
+                    width={16} 
+                    height={16} 
+                    className="mr-2 w-4 h-4"
+                  />
                   Open in Google Doc
                 </a>
               </div>
