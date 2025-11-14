@@ -1,3 +1,6 @@
+/* Liveblocks UI styles */
+@import "@liveblocks/react-ui/styles.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -56,6 +59,152 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Remove shadows from Liveblocks components to match design system */
+.lb-ai-chat [data-liveblocks-ai-chat-input],
+.lb-ai-chat textarea,
+.lb-ai-chat input,
+.lb-ai-chat [role="textbox"],
+.lb-ai-chat [contenteditable="true"] {
+  box-shadow: none !important;
+  border: 1px solid var(--border) !important;
+}
+
+.lb-ai-chat [data-liveblocks-ai-chat-input]:focus,
+.lb-ai-chat textarea:focus,
+.lb-ai-chat input:focus,
+.lb-ai-chat [role="textbox"]:focus,
+.lb-ai-chat [contenteditable="true"]:focus {
+  box-shadow: none !important;
+  outline: none !important;
+  border-color: var(--ring) !important;
+}
+
+/* Remove shadows from any Liveblocks buttons or interactive elements */
+.lb-ai-chat button,
+.lb-ai-chat [role="button"] {
+  box-shadow: none !important;
+}
+
+/* Remove shadows from Liveblocks elevation classes */
+.lb-elevation,
+.lb-elevation-moderate,
+.lb-elevation-light,
+.lb-elevation-heavy {
+  box-shadow: none !important;
+}
+
+/* Remove shadows from specific Liveblocks footer and composer components */
+.lb-ai-chat-footer,
+.lb-ai-composer,
+.lb-ai-composer-form,
+.lb-ai-chat-composer,
+.lb-ai-composer-editor-container,
+.lb-ai-composer-footer,
+.lb-ai-composer-editor,
+.lb-ai-composer-actions,
+.lb-ai-chat-scroll-indicator {
+  box-shadow: none !important;
+}
+
+/* Add border-top to separate footer/composer from chat messages */
+.lb-ai-chat-footer,
+.lb-ai-composer,
+.lb-ai-composer-form,
+.lb-ai-chat-composer {
+  border-top: 1px solid #e5e7eb !important;
+  border-radius: 0 !important;
+}
+
+/* Also try targeting the form element specifically */
+.lb-ai-chat-footer form,
+.lb-ai-chat-footer .lb-ai-composer-form {
+  border-top: 1px solid #e5e7eb !important;
+  border-radius: 0 !important;
+}
+
+/* Remove border radius from all Liveblocks components */
+.lb-ai-chat,
+.lb-ai-chat * {
+  border-radius: 0 !important;
+}
+
+/* Remove padding from footer for edge-to-edge border */
+.lb-ai-chat-footer {
+  padding: 0 !important;
+}
+
+/* Add padding to form container only */
+.lb-ai-composer,
+.lb-ai-composer-form,
+.lb-ai-chat-composer,
+.lb-ai-chat-footer form,
+.lb-ai-chat-footer .lb-ai-composer-form {
+  padding: 16px !important;
+}
+
+/* Remove padding from input elements to prevent double padding */
+.lb-ai-composer-editor,
+.lb-ai-composer-editor-container,
+.lb-ai-composer [role="textbox"],
+.lb-ai-composer [contenteditable="true"] {
+  padding: 0 !important;
+}
+
+/* Remove padding from composer footer */
+.lb-ai-composer-footer,
+.lb-ai-composer-actions,
+.lb-ai-composer-editor-actions {
+  padding: 0 !important;
+}
+
+/* Add border radius to send button only */
+.lb-ai-composer-action,
+.lb-ai-composer button[type="submit"],
+.lb-ai-chat-composer button[type="submit"] {
+  border-radius: 8px !important;
+  background-color: black !important;
+  color: white !important;
+  border-color: black !important;
+}
+
+/* Send button hover state */
+.lb-ai-composer-action:hover,
+.lb-ai-composer button[type="submit"]:hover,
+.lb-ai-chat-composer button[type="submit"]:hover {
+  background-color: #333 !important;
+  border-color: #333 !important;
+}
+
+/* Add padding back to message area for readability */
+.lb-ai-chat-messages,
+.lb-ai-chat-content,
+.lb-ai-chat-body,
+.lb-ai-chat .lb-ai-chat-messages,
+.lb-ai-chat .lb-messages,
+.lb-ai-chat .lb-message-list {
+  padding: 16px !important;
+}
+
+/* Add padding to individual messages */
+.lb-ai-chat-message,
+.lb-message,
+.lb-ai-chat .lb-message,
+.lb-ai-chat .lb-ai-chat-message {
+  padding: 8px 0 !important;
+}
+
+/* Add padding to any content area above the footer */
+.lb-ai-chat > div:not(.lb-ai-chat-footer),
+.lb-ai-chat .lb-ai-chat-content-area,
+.lb-ai-chat .lb-chat-content {
+  padding: 16px !important;
+}
+
+/* Remove shadows from all Liveblocks root elements within chat */
+.lb-ai-chat .lb-root {
+  box-shadow: none !important;
 }
 
 /* Custom styles for the proposal page */

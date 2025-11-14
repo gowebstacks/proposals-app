@@ -2,13 +2,27 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { Tabs } from '@/components/ui/tabs'
-import { FileText } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Sparkles, FileText } from 'lucide-react'
 import Image from 'next/image'
 import PortableText from '@/components/PortableText'
 import type { TypedObject } from '@portabletext/types'
 import { urlForImage } from '@/lib/sanity'
+import { RoomProvider } from '@/lib/liveblocks'
+import { cn } from '@/lib/utils'
+
+// Dynamic import to avoid SSR issues with Liveblocks
+const LiveblocksCopilot = dynamic(() => import('@/components/LiveblocksCopilot'), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed bottom-4 right-4 z-50 w-80 h-32 bg-white border border-gray-200 rounded-lg shadow-lg flex items-center justify-center">
+      <div className="text-sm text-gray-500">Loading comments...</div>
+    </div>
+  )
+})
+
 
 interface Tab {
   title?: string
@@ -197,13 +211,18 @@ export default function ProposalContent({
   }))
 
   return (
-    <div className="min-h-screen bg-white text-black">
+    <RoomProvider
+      id={`proposal-${proposalSlug}`}
+      initialPresence={{}}
+      initialStorage={{}}
+    >
+      <div className="min-h-screen bg-white text-black">
       {/* Fixed Header with Logo */}
       <div className={cn(
-        "fixed top-0 left-0 right-0 z-40 transition-all duration-200",
+        "fixed top-0 left-0 z-40 transition-all duration-200",
         isScrolled ? "bg-white/95 backdrop-blur-sm border-b border-gray-200" : "bg-white"
-      )}>
-        <div className="px-8 py-6">
+      )} style={{ width: 'calc(100% - 320px)' }}>
+        <div className="px-8 py-6 flex items-center justify-between">
           <Image 
             src="/webstacks-logotype-onlight.svg" 
             alt="Webstacks" 
@@ -211,6 +230,18 @@ export default function ProposalContent({
             height={20}
             className="h-5 w-auto"
           />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              // Dispatch custom event to open chat
+              window.dispatchEvent(new CustomEvent('open-chat'))
+            }}
+            className="gap-2"
+          >
+            <Sparkles size={16} />
+            Ask AI
+          </Button>
         </div>
       </div>
       
@@ -297,10 +328,9 @@ export default function ProposalContent({
               </div>
             </div>
           </div>
-        </div>
 
         {/* Fixed Sidebar - Table of Contents with Outline */}
-        <div className="fixed right-0 top-0 w-80 h-screen bg-black text-white border-l border-white z-50 overflow-hidden">
+        <div className="fixed right-0 top-0 w-80 h-screen bg-black text-white border-l border-white z-30 overflow-hidden">
           <div className="p-6">
             {/* Prepared for section */}
             {company ? (
@@ -482,9 +512,24 @@ export default function ProposalContent({
                 </a>
               </div>
             )}
-          </div>
+
+                      </div>
         </div>
       </div>
-    </div>
+      </div>
+
+      {/* Liveblocks Copilot for comments and feedback */}
+      <LiveblocksCopilot
+        roomId={`proposal-${proposalSlug}`}
+        userInfo={{
+          name: 'Anonymous User',
+          email: 'user@example.com'
+        }}
+        proposalTitle={tabs[activeTabIndex]?.title || 'Proposal'}
+        companyName={company?.name}
+        proposalContent={JSON.stringify(tabs[activeTabIndex]?.content || [])}
+      />
+      </div>
+    </RoomProvider>
   )
 }
