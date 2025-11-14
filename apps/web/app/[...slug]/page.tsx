@@ -1,9 +1,37 @@
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import { client, groq } from '@/lib/sanity'
 import ProposalContent from '@/components/ProposalContent'
 
 interface ProposalPageProps {
   params: Promise<{ slug: string[] }>
+}
+
+export async function generateMetadata({ params }: ProposalPageProps): Promise<Metadata> {
+  const { slug } = await params
+  const proposalSlug = slug?.[0] || ''
+  
+  const proposal = await client.fetch(groq`*[_type == "proposal" && seo.slug.current == $slug][0]{
+    title,
+    seo,
+    company->{
+      name
+    }
+  }`, { slug: proposalSlug })
+  
+  if (!proposal) {
+    return {
+      title: 'Proposal Not Found'
+    }
+  }
+  
+  const title = proposal.seo?.pageTitle || proposal.title || 'Proposal'
+  const description = proposal.seo?.pageDescription || `Proposal for ${proposal.company?.name || 'client'}`
+  
+  return {
+    title,
+    description,
+  }
 }
 
 export default async function ProposalPage({ params }: ProposalPageProps) {
