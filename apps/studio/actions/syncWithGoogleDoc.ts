@@ -8,6 +8,12 @@ import { SyncIcon } from '@sanity/icons'
 import type { DocumentActionComponent } from 'sanity'
 import type { PortableTextBlock } from '../schemas/fields/canvas'
 
+type SanityTableHeader = { text: string; alignment?: 'left' | 'center' | 'right' }
+type SanityTableCell = { content: string }
+type SanityTableRow = { cells: SanityTableCell[] }
+type SanityTableNode = { _type: 'table'; caption?: string; headers: SanityTableHeader[]; rows: SanityTableRow[] }
+type PTContent = PortableTextBlock | SanityTableNode
+
 interface DocumentActionProps {
   id: string
   type: string
@@ -34,6 +40,7 @@ interface GoogleDocsParagraph {
   paragraphStyle?: {
     namedStyleType?: string
     headingId?: string
+    alignment?: string
   }
   // Present when this paragraph is a list item
   bullet?: {
@@ -42,10 +49,64 @@ interface GoogleDocsParagraph {
   }
 }
 
+function extractTextFromStructuralElements(elements?: GoogleDocsStructuralElement[]): string {
+  if (!elements || elements.length === 0) return ''
+  const parts: string[] = []
+  for (const el of elements) {
+    if (el.paragraph) {
+      for (const pe of el.paragraph.elements) {
+        if (pe.textRun?.content) {
+          const cleaned = pe.textRun.content
+            .replace(/\n/g, ' ')
+            .replace(/[^\t\n\r\u0020-\u007E]/g, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim()
+          if (cleaned) parts.push(cleaned)
+        }
+      }
+    }
+  }
+  return parts.join(' ')
+}
+
+function firstParagraphAlignment(elements?: GoogleDocsStructuralElement[]): string | undefined {
+  if (!elements) return undefined
+  for (const el of elements) {
+    if (el.paragraph?.paragraphStyle?.alignment) {
+      return el.paragraph.paragraphStyle.alignment
+    }
+  }
+  return undefined
+}
+
+function mapAlignment(alignment?: string): 'left' | 'center' | 'right' {
+  switch (alignment) {
+    case 'CENTER':
+      return 'center'
+    case 'END':
+    case 'RIGHT':
+      return 'right'
+    default:
+      return 'left'
+  }
+}
+
 interface GoogleDocsStructuralElement {
   paragraph?: GoogleDocsParagraph
-  table?: unknown
+  table?: GoogleDocsTable
   sectionBreak?: unknown
+}
+
+interface GoogleDocsTableCell {
+  content?: GoogleDocsStructuralElement[]
+}
+
+interface GoogleDocsTableRow {
+  tableCells?: GoogleDocsTableCell[]
+}
+
+interface GoogleDocsTable {
+  tableRows?: GoogleDocsTableRow[]
 }
 
 interface GoogleDocsDocumentTab {
@@ -215,7 +276,7 @@ function flattenTabs(tabs: GoogleDocsTab[]): GoogleDocsTab[] {
 }
 
 // Convert Google Docs content to portable text format
-function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: Array<{ title: string; content: PortableTextBlock[] }> } {
+function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: Array<{ title: string; content: PTContent[] }> } {
   console.log('=== CONVERT TO PORTABLE TEXT STARTED ===')
   console.log('Document structure:', JSON.stringify(doc, null, 2))
   
@@ -225,7 +286,7 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
     const flatTabs = flattenTabs(doc.tabs)
     console.log('Flattened tabs:', flatTabs.length)
     
-    const sanityTabs: Array<{ title: string; content: PortableTextBlock[] }> = []
+    const sanityTabs: Array<{ title: string; content: PTContent[] }> = []
     for (const tab of flatTabs) {
       const title = tab.tabProperties?.title || 'Untitled Tab'
       console.log(`Processing tab: "${title}"`)
@@ -241,7 +302,7 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
       
       console.log('Body content length:', body.content.length)
       
-      const blocks: PortableTextBlock[] = []
+      const blocks: PTContent[] = []
       
       body.content.forEach((element, elementIndex) => {
         console.log(`Processing element ${elementIndex}:`, JSON.stringify(element, null, 2))
@@ -284,8 +345,7 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
                   .replace(/\n+$/, '') // Remove trailing newlines only
               }
 
-              // Normalize control characters that can break spacing
-              textContent = textContent.replace(/[\r\v]/g, ' ')
+              textContent = textContent.replace(/[^\t\n\r\u0020-\u007E]/g, ' ')
 
               // Convert remaining lone newlines inside a paragraph to single spaces
               // since we already create separate blocks per paragraph
@@ -382,6 +442,27 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
             console.log('Created block:', JSON.stringify(block, null, 2))
             blocks.push(block)
           }
+        } else if (element.table) {
+          const table = element.table
+          const tableRows = table?.tableRows || []
+          if (tableRows.length > 0) {
+            const headerCells = tableRows[0]?.tableCells || []
+            const headers: SanityTableHeader[] = headerCells.map((cell) => {
+              const text = extractTextFromStructuralElements(cell.content)
+              const align = mapAlignment(firstParagraphAlignment(cell.content))
+              return { text, alignment: align }
+            })
+            const rows: SanityTableRow[] = tableRows.slice(1).map((row) => ({
+              cells: (row.tableCells || []).map((cell) => ({ content: extractTextFromStructuralElements(cell.content) })),
+            }))
+            const tableNode: SanityTableNode = {
+              _type: 'table',
+              caption: undefined,
+              headers,
+              rows,
+            }
+            blocks.push(tableNode)
+          }
         }
       })
       
@@ -399,7 +480,7 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
     return { title: doc.title || doc.documentId || 'Google Document', tabs: [] }
   }
   
-  const blocks: PortableTextBlock[] = []
+  const blocks: PTContent[] = []
   
   doc.body.content.forEach((element) => {
     if (element.paragraph) {
@@ -440,8 +521,7 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
               .replace(/\n+$/, '') // Remove trailing newlines only
           }
 
-          // Normalize control characters that can break spacing
-          textContent = textContent.replace(/[\u000b\r]/g, ' ')
+          textContent = textContent.replace(/[\x00-\x08\x0A-\x1F\x7F]/g, ' ')
 
           // Convert remaining lone newlines inside a paragraph to single spaces
           textContent = textContent.replace(/\n/g, ' ')
@@ -535,6 +615,27 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
         console.log('Fallback created block:', JSON.stringify(block, null, 2))
         blocks.push(block)
       }
+    } else if (element.table) {
+      const table = element.table
+      const tableRows = table?.tableRows || []
+      if (tableRows.length > 0) {
+        const headerCells = tableRows[0]?.tableCells || []
+        const headers: SanityTableHeader[] = headerCells.map((cell) => {
+          const text = extractTextFromStructuralElements(cell.content)
+          const align = mapAlignment(firstParagraphAlignment(cell.content))
+          return { text, alignment: align }
+        })
+        const rows: SanityTableRow[] = tableRows.slice(1).map((row) => ({
+          cells: (row.tableCells || []).map((cell) => ({ content: extractTextFromStructuralElements(cell.content) })),
+        }))
+        const tableNode: SanityTableNode = {
+          _type: 'table',
+          caption: undefined,
+          headers,
+          rows,
+        }
+        blocks.push(tableNode)
+      }
     }
   })
   
@@ -545,16 +646,16 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
 }
 
 // Convert plain text to portable text with tab splitting
-function convertPlainTextToPortableText(docId: string, text: string): { title: string; tabs: Array<{ title: string; content: PortableTextBlock[] }> } {
+function convertPlainTextToPortableText(docId: string, text: string): { title: string; tabs: Array<{ title: string; content: PTContent[] }> } {
   const lines = text.split('\n').filter(line => line.trim())
-  const tabs: Array<{ title: string; content: PortableTextBlock[] }> = []
-  let currentTab: { title: string; content: PortableTextBlock[] } | null = null
+  const tabs: Array<{ title: string; content: PTContent[] }> = []
+  let currentTab: { title: string; content: PTContent[] } | null = null
   
   for (const line of lines) {
     const trimmed = line.trim()
     
     // Check for section delimiter: --- Section Name ---
-    const sectionMatch = trimmed.match(/^[\-—]{3,}\s*(.+?)\s*[\-—]{3,}$/)
+    const sectionMatch = trimmed.match(/^[—-]{3,}\s*(.+?)\s*[—-]{3,}$/)
     
     if (sectionMatch) {
       // Save previous tab if exists
@@ -596,7 +697,7 @@ function convertPlainTextToPortableText(docId: string, text: string): { title: s
   
   // If no tabs were created, create one with all content
   if (tabs.length === 0) {
-    const blocks: PortableTextBlock[] = lines.map(line => ({
+    const blocks: PTContent[] = lines.map(line => ({
       _type: 'block',
       style: 'normal',
       _key: genKey(),
@@ -610,7 +711,7 @@ function convertPlainTextToPortableText(docId: string, text: string): { title: s
 }
 
 // Main parsing function
-async function parseGoogleDoc(googleDocUrl: string): Promise<{ title: string; tabs: Array<{ title: string; content: PortableTextBlock[] }> }> {
+async function parseGoogleDoc(googleDocUrl: string): Promise<{ title: string; tabs: Array<{ title: string; content: PTContent[] }> }> {
   try {
     // Extract document ID from URL
     const docId = extractDocId(googleDocUrl)
@@ -674,7 +775,7 @@ export const SyncWithGoogleDocAction: DocumentActionComponent = ({
       console.log('Parsed Google Doc tabs:', parsed.tabs.length, parsed.tabs.map(t => t.title))
       
       // Create canvas tabs from parsed content
-      const canvasTabs = parsed.tabs.map((tab: { title?: string; content?: PortableTextBlock[] }, index: number) => ({
+      const canvasTabs = parsed.tabs.map((tab: { title?: string; content?: PTContent[] }, index: number) => ({
         _key: `tab_${index}_${genKey()}`,
         _type: 'canvas' as const,
         title: tab.title || 'Untitled',

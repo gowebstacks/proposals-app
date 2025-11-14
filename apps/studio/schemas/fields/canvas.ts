@@ -53,6 +53,90 @@ const canvas = defineType({
             ],
           },
         },
+        {
+          type: 'object',
+          name: 'table',
+          title: 'Table',
+          fields: [
+            {
+              name: 'caption',
+              title: 'Table Caption',
+              type: 'string',
+              description: 'Optional caption displayed above the table',
+            },
+            {
+              name: 'headers',
+              title: 'Table Headers',
+              type: 'array',
+              description: 'Column headers for the table',
+              validation: (Rule: any) => Rule.required().min(1),
+              of: [
+                {
+                  type: 'object',
+                  name: 'header',
+                  fields: [
+                    {
+                      name: 'text',
+                      title: 'Header Text',
+                      type: 'string',
+                      validation: (Rule: any) => Rule.required(),
+                    },
+                    {
+                      name: 'alignment',
+                      title: 'Text Alignment',
+                      type: 'string',
+                      options: {
+                        list: [
+                          { title: 'Left', value: 'left' },
+                          { title: 'Center', value: 'center' },
+                          { title: 'Right', value: 'right' },
+                        ],
+                        layout: 'radio',
+                      },
+                      initialValue: 'left',
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              name: 'rows',
+              title: 'Table Rows',
+              type: 'array',
+              description: 'Data rows for the table',
+              validation: (Rule: any) => Rule.required().min(1),
+              of: [
+                {
+                  type: 'object',
+                  name: 'row',
+                  fields: [
+                    {
+                      name: 'cells',
+                      title: 'Row Cells',
+                      type: 'array',
+                      description: 'Cell data for this row',
+                      of: [
+                        {
+                          type: 'object',
+                          name: 'cell',
+                          fields: [
+                            {
+                              name: 'content',
+                              title: 'Cell Content',
+                              type: 'text',
+                              rows: 1,
+                              validation: (Rule: any) => Rule.required(),
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       ],
       description: 'Rich text content for the canvas',
     },
