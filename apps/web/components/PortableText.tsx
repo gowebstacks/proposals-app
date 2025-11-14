@@ -31,17 +31,20 @@ interface PortableTextBlock {
 
 const components: Partial<PortableTextReactComponents> = {
   block: {
-    h1: ({ children }: { children?: React.ReactNode }) => {
+    h1: ({ children, value }: { children?: React.ReactNode; value?: any }) => {
       console.log('🎯 Rendering h1 block:', children)
-      return <h1 className="text-5xl font-light text-black mb-8 leading-tight tracking-tight">{children}</h1>
+      const headingId = value?._key || `h1-${Math.random().toString(36).slice(2)}`
+      return <h1 id={headingId} className="text-5xl font-light text-black mb-8 leading-tight tracking-tight">{children}</h1>
     },
-    h2: ({ children }: { children?: React.ReactNode }) => {
+    h2: ({ children, value }: { children?: React.ReactNode; value?: any }) => {
       console.log('🎯 Rendering h2 block:', children)
-      return <h2 className="text-4xl font-light text-black mb-6 leading-tight tracking-tight">{children}</h2>
+      const headingId = value?._key || `h2-${Math.random().toString(36).slice(2)}`
+      return <h2 id={headingId} className="text-4xl font-light text-black mb-6 leading-tight tracking-tight">{children}</h2>
     },
-    h3: ({ children }: { children?: React.ReactNode }) => {
+    h3: ({ children, value }: { children?: React.ReactNode; value?: any }) => {
       console.log('🎯 Rendering h3 block:', children)
-      return <h3 className="text-2xl font-medium text-black mb-4 leading-tight">{children}</h3>
+      const headingId = value?._key || `h3-${Math.random().toString(36).slice(2)}`
+      return <h3 id={headingId} className="text-2xl font-medium text-black mb-4 leading-tight">{children}</h3>
     },
     normal: ({ children }: { children?: React.ReactNode }) => {
       console.log('📄 Rendering normal block:', children)
