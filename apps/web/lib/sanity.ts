@@ -1,4 +1,6 @@
 import { createClient, groq } from 'next-sanity'
+import imageUrlBuilder from '@sanity/image-url'
+import type { SanityImageSource } from '@sanity/image-url/lib/types/types'
 
 export { groq }
 
@@ -12,6 +14,14 @@ export const client = createClient({
   apiVersion,
   useCdn: false,
 })
+
+// Set up image URL builder
+const builder = imageUrlBuilder({ projectId, dataset })
+
+// Helper function for generating image URLs with Sanity Image Pipeline
+export function urlForImage(source: SanityImageSource) {
+  return builder.image(source)
+}
 
 export async function getProposalBySlug(slug: string) {
   // Try to fetch by seo.slug first

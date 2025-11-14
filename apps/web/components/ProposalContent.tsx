@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import PortableText from '@/components/PortableText'
 import type { TypedObject } from '@portabletext/types'
+import { urlForImage } from '@/lib/sanity'
 
 interface Tab {
   title?: string
@@ -28,16 +29,64 @@ interface PortableTextBlock {
   markDefs?: Array<{ _key: string; _type: string }>
 }
 
+interface Company {
+  _id: string
+  name: string
+  logoOnLight?: {
+    asset: {
+      _ref: string
+      url?: string
+    }
+  }
+  logoOnDark?: {
+    asset: {
+      _ref: string
+      url?: string
+    }
+  }
+  logomarkOnLight?: {
+    asset: {
+      _ref: string
+      url?: string
+    }
+  }
+  logomarkOnDark?: {
+    asset: {
+      _ref: string
+      url?: string
+    }
+  }
+}
+
+interface Person {
+  _id: string
+  firstName: string
+  lastName: string
+  role?: string
+  headshot?: {
+    asset: {
+      _ref: string
+      url?: string
+    }
+  }
+}
+
 interface ProposalContentProps {
   tabs: Tab[]
   proposalSlug: string
   activeTabIndex: number
+  company?: Company
+  googleDocUrl?: string
+  preparedBy?: Person
 }
 
 export default function ProposalContent({
   tabs,
   proposalSlug,
-  activeTabIndex
+  activeTabIndex,
+  company,
+  googleDocUrl,
+  preparedBy
 }: ProposalContentProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const router = useRouter()
@@ -212,6 +261,97 @@ export default function ProposalContent({
         {/* Fixed Sidebar - Table of Contents with Outline */}
         <div className="fixed right-0 top-0 w-80 h-screen bg-black text-white border-l border-white z-50 overflow-hidden">
           <div className="p-6">
+            {/* Prepared for section */}
+            {company ? (
+              <div className="mb-8">
+                <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">
+                  Prepared for
+                </h3>
+                <div className="flex items-center space-x-3">
+                  {(() => {
+                    console.log('🏢 Company data:', company)
+                    console.log('🖼️ logoOnLight:', company.logoOnLight)
+                    console.log('🖼️ logoOnDark:', company.logoOnDark)
+                    console.log('🖼️ logomarkOnLight:', company.logomarkOnLight)
+                    console.log('🖼️ logomarkOnDark:', company.logomarkOnDark)
+                    
+                    // Try different logo fields in order of preference
+                    const logo = company.logoOnLight || company.logoOnDark || company.logomarkOnLight || company.logomarkOnDark
+                    
+                    if (logo) {
+                      const imageUrl = urlForImage(logo).url()
+                      console.log('🔗 Generated image URL:', imageUrl)
+                      return (
+                        <div className="flex-shrink-0">
+                          <Image
+                            src={imageUrl}
+                            alt={company.name}
+                            width={60}
+                            height={60}
+                            className="object-contain bg-white rounded p-1"
+                            onError={(e) => console.error('❌ Image failed to load:', e)}
+                            onLoad={() => console.log('✅ Image loaded successfully')}
+                          />
+                        </div>
+                      )
+                    } else {
+                      console.log('⚠️ No logo found in any field')
+                      return (
+                        <div className="flex-shrink-0 w-14 h-14 bg-gray-600 rounded flex items-center justify-center">
+                          <span className="text-white text-lg font-bold">
+                            {company.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )
+                    }
+                  })()}
+                  <div>
+                    <p className="text-white font-medium text-sm">{company.name}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-8">
+                <p className="text-gray-400 text-sm">No company data found</p>
+              </div>
+            )}
+            
+            {/* Prepared by section */}
+            {preparedBy && (
+              <div className="mb-8 pb-6 border-b border-gray-700">
+                <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">
+                  Prepared by
+                </h3>
+                <div className="flex items-center space-x-3">
+                  {preparedBy.headshot ? (
+                    <div className="flex-shrink-0">
+                      <Image
+                        src={urlForImage(preparedBy.headshot).url()}
+                        alt={`${preparedBy.firstName} ${preparedBy.lastName}`}
+                        width={40}
+                        height={40}
+                        className="object-cover rounded-full"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">
+                        {preparedBy.firstName.charAt(0)}{preparedBy.lastName.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-white font-medium text-sm">
+                      {preparedBy.firstName} {preparedBy.lastName}
+                    </p>
+                    {preparedBy.role && (
+                      <p className="text-gray-400 text-xs">{preparedBy.role}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-6">
               Contents
             </h3>
@@ -270,6 +410,23 @@ export default function ProposalContent({
               <div className="text-white text-center py-8">
                 <FileText className="h-8 w-8 mx-auto mb-2 opacity-100" />
                 <p className="text-sm">No sections available</p>
+              </div>
+            )}
+            
+            {/* Open in Google Doc button - positioned at bottom */}
+            {googleDocUrl && (
+              <div className="mt-8 pt-6 border-t border-gray-700">
+                <a
+                  href={googleDocUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium text-black bg-white rounded-md hover:bg-gray-100 transition-colors duration-200"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                  </svg>
+                  Open in Google Doc
+                </a>
               </div>
             )}
           </div>

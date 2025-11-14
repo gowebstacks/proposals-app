@@ -11,13 +11,51 @@ const company = defineType({
       type: 'string',
       validation: (Rule) => Rule.required(),
     }),
+    // Logo variants
+    defineField({
+      name: 'logoOnLight',
+      title: 'Logo on Light Background',
+      type: 'image',
+      description: 'Full company logo for use on light backgrounds',
+      options: {
+        hotspot: true,
+      },
+    }),
+    defineField({
+      name: 'logoOnDark',
+      title: 'Logo on Dark Background', 
+      type: 'image',
+      description: 'Full company logo for use on dark backgrounds',
+      options: {
+        hotspot: true,
+      },
+    }),
+    // Logomark variants
+    defineField({
+      name: 'logomarkOnLight',
+      title: 'Logomark on Light Background',
+      type: 'image',
+      description: 'Company logomark/symbol for use on light backgrounds',
+      options: {
+        hotspot: true,
+      },
+    }),
+    defineField({
+      name: 'logomarkOnDark',
+      title: 'Logomark on Dark Background',
+      type: 'image', 
+      description: 'Company logomark/symbol for use on dark backgrounds',
+      options: {
+        hotspot: true,
+      },
+    }),
     defineField({
       name: 'website',
       title: 'Website',
       type: 'url',
       validation: (Rule) =>
         Rule.uri({
-          scheme: ['http', 'https'],
+          scheme: ['http', 'https', 'mailto', 'tel'],
         }),
     }),
     defineField({
@@ -31,20 +69,11 @@ const company = defineType({
       title: 'Phone',
       type: 'string',
     }),
-    defineField({
-      name: 'logo',
-      title: 'Logo',
-      type: 'image',
-      description: 'Company logo',
-      options: {
-        hotspot: true,
-      },
-    }),
   ],
   preview: {
     select: {
       title: 'name',
-      media: 'logo',
+      media: 'logoOnLight',
     },
   },
 })

@@ -25,6 +25,14 @@ const proposal = defineType({
       group: 'content',
     },
     {
+      name: 'preparedBy',
+      title: 'Prepared By',
+      type: 'reference',
+      to: [{ type: 'person' }],
+      description: 'Person who prepared this proposal',
+      group: 'content',
+    },
+    {
       name: 'tabs',
       title: 'Tabs',
       type: 'array',

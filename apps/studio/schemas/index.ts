@@ -9,6 +9,7 @@ export const schemaTypes = [
   // Document schemas
   documents.proposal,
   documents.company,
+  documents.person,
   
   // Field schemas (reusable components)
   fields.seo,

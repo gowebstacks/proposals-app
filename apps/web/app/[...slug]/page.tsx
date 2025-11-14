@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getProposalBySlug, client, groq } from '@/lib/sanity'
+import { client, groq } from '@/lib/sanity'
 import ProposalContent from '@/components/ProposalContent'
 
 interface ProposalPageProps {
@@ -14,7 +14,29 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
   const proposalSlug = slug?.[0] || ''
   const tabSlug = slug?.[1] || null
   
-  const proposal = await getProposalBySlug(proposalSlug)
+  // Fetch proposal with company data
+  const proposal = await client.fetch(groq`*[_type == "proposal" && seo.slug.current == $slug][0]{
+    _id,
+    title,
+    tabs,
+    googleDoc,
+    preparedBy->{
+      _id,
+      firstName,
+      lastName,
+      role,
+      headshot
+    },
+    company->{
+      _id,
+      name,
+      logoOnLight,
+      logoOnDark,
+      logomarkOnLight,
+      logomarkOnDark
+    },
+    seo
+  }`, { slug: proposalSlug })
   
   if (!proposal) {
     notFound()
@@ -36,6 +58,9 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
       tabs={proposal.tabs || []}
       proposalSlug={proposalSlug}
       activeTabIndex={activeTabIndex}
+      company={proposal.company}
+      googleDocUrl={proposal.googleDoc}
+      preparedBy={proposal.preparedBy}
     />
   )
 }
