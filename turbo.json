@@ -3,7 +3,11 @@
   "ui": "tui",
   "globalEnv": [
     "GOOGLE_CLIENT_SECRET",
-    "GOOGLE_CLIENT_ID"
+    "GOOGLE_CLIENT_ID",
+    "LIVEBLOCKS_SECRET_KEY",
+    "SANITY_API_READ_TOKEN",
+    "SANITY_API_WRITE_TOKEN",
+    "PROPOSALS_PASSWORD_SECRET"
   ],
   "tasks": {
     "build": {
