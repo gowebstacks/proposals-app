@@ -645,6 +645,57 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
   }
 }
 
+// Parse a plain text line and return Portable Text spans + markDefs with link annotations
+function parsePlainTextLineToPT(
+  line: string
+): {
+  children: Array<{ _type: 'span'; text: string; _key: string; marks: string[] }>
+  markDefs: Array<{ _key: string; _type: 'link'; href: string }>
+} {
+  const children: Array<{ _type: 'span'; text: string; _key: string; marks: string[] }> = []
+  const markDefs: Array<{ _key: string; _type: 'link'; href: string }> = []
+
+  // Basic URL matcher: http(s)://... or www.... until whitespace or angle/paren terminators
+  const urlRegex = /(https?:\/\/|www\.)[^\s<>()]+/gi
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  // Ensure we operate on the original line (preserve spacing), but normalize control chars
+  const source = line.replace(/[\x00-\x08\x0B-\x1F\x7F]/g, ' ')
+
+  while ((match = urlRegex.exec(source)) !== null) {
+    const start = match.index
+    const end = urlRegex.lastIndex
+    const urlText = source.slice(start, end)
+
+    // Pre-match text
+    const pre = source.slice(lastIndex, start)
+    if (pre) {
+      children.push({ _type: 'span', text: pre, _key: genKey(), marks: [] })
+    }
+
+    // Normalize href (prefix scheme for www.)
+    const href = urlText.startsWith('www.') ? `https://${urlText}` : urlText
+    const markKey = genKey()
+    markDefs.push({ _key: markKey, _type: 'link', href })
+    children.push({ _type: 'span', text: urlText, _key: genKey(), marks: [markKey] })
+
+    lastIndex = end
+  }
+
+  // Trailing text after last match
+  const tail = source.slice(lastIndex)
+  if (tail) {
+    children.push({ _type: 'span', text: tail, _key: genKey(), marks: [] })
+  }
+
+  if (children.length === 0) {
+    children.push({ _type: 'span', text: source, _key: genKey(), marks: [] })
+  }
+
+  return { children, markDefs }
+}
+
 // Convert plain text to portable text with tab splitting
 function convertPlainTextToPortableText(docId: string, text: string): { title: string; tabs: Array<{ title: string; content: PTContent[] }> } {
   const lines = text.split('\n').filter(line => line.trim())
@@ -680,12 +731,13 @@ function convertPlainTextToPortableText(docId: string, text: string): { title: s
         }
       }
       
+      const { children, markDefs } = parsePlainTextLineToPT(line)
       currentTab.content.push({
         _type: 'block',
         style: 'normal',
         _key: genKey(),
-        markDefs: [],
-        children: [{ _type: 'span', text: trimmed, _key: genKey(), marks: [] }],
+        markDefs,
+        children,
       })
     }
   }
@@ -697,13 +749,16 @@ function convertPlainTextToPortableText(docId: string, text: string): { title: s
   
   // If no tabs were created, create one with all content
   if (tabs.length === 0) {
-    const blocks: PTContent[] = lines.map(line => ({
-      _type: 'block',
-      style: 'normal',
-      _key: genKey(),
-      markDefs: [],
-      children: [{ _type: 'span', text: line.trim(), _key: genKey(), marks: [] }],
-    }))
+    const blocks: PTContent[] = lines.map(line => {
+      const { children, markDefs } = parsePlainTextLineToPT(line)
+      return {
+        _type: 'block',
+        style: 'normal',
+        _key: genKey(),
+        markDefs,
+        children,
+      }
+    })
     return { title: docId, tabs: [{ title: 'Content', content: blocks }] }
   }
   

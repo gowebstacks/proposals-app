@@ -13,7 +13,7 @@ interface PortableTextBlock {
   style: 'normal' | 'h1' | 'h2' | 'h3'
   children: PortableTextChild[]
   _key?: string
-  markDefs?: Array<{ _key: string; _type: string }>
+  markDefs?: Array<{ _key: string; _type: string; href?: string }>
   listItem?: 'bullet' | 'number'
   level?: number
 }
@@ -50,6 +50,21 @@ const canvas = defineType({
             decorators: [
               { title: 'Strong', value: 'strong' },
               { title: 'Emphasis', value: 'em' },
+              { title: 'Underline', value: 'underline' },
+            ],
+            annotations: [
+              {
+                name: 'link',
+                title: 'Link',
+                type: 'object',
+                fields: [
+                  {
+                    name: 'href',
+                    title: 'URL',
+                    type: 'url',
+                  },
+                ],
+              },
             ],
           },
         },
