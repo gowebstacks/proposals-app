@@ -23,6 +23,7 @@
     "@repo/ui": "workspace:*",
     "@sanity/client": "^7.6.0",
     "@sanity/image-url": "^1.1.0",
+    "@segment/snippet": "^5.2.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.441.0",

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import SegmentScript from "@/lib/analytics/SegmentScript";
+import PostHogScript from "@/lib/analytics/PostHogScript";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -53,6 +55,8 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
+        <SegmentScript />
+        <PostHogScript />
       </body>
     </html>
   );
