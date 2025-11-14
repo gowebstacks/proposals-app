@@ -1,7 +1,10 @@
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { client, groq } from '@/lib/sanity'
 import ProposalContent from '@/components/ProposalContent'
+import PasswordGate from '@/components/PasswordGate'
+import { createHmac } from 'crypto'
 
 interface ProposalPageProps {
   params: Promise<{ slug: string[] }>
@@ -10,6 +13,19 @@ interface ProposalPageProps {
 // Site configuration - update with your actual domain
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://proposals.webstacks.com'
 
+// Force dynamic so cookies can be read to protect content
+export const dynamic = 'force-dynamic'
+
+function getSecret(): string {
+  const secret = process.env.PROPOSALS_PASSWORD_SECRET || process.env.NEXTAUTH_SECRET
+  if (!secret) throw new Error('Missing PROPOSALS_PASSWORD_SECRET or NEXTAUTH_SECRET')
+  return secret
+}
+
+function signToken(slug: string, password: string): string {
+  return createHmac('sha256', getSecret()).update(`${slug}:${password}`).digest('hex')
+}
+
 export async function generateMetadata({ params }: ProposalPageProps): Promise<Metadata> {
   const { slug } = await params
   const proposalSlug = slug?.[0] || ''
@@ -17,7 +33,8 @@ export async function generateMetadata({ params }: ProposalPageProps): Promise<M
   // Fetch proposal SEO data
   const proposal = await client.fetch(groq`*[_type == "proposal" && seo.slug.current == $slug][0]{
     title,
-    seo
+    seo,
+    passwords
   }`, { slug: proposalSlug })
 
   if (!proposal) {
@@ -33,8 +50,9 @@ export async function generateMetadata({ params }: ProposalPageProps): Promise<M
   const ogImage = seo?.openGraphImage?.asset?.url
   
   const url = `${SITE_URL}/${proposalSlug}`
-  const index = !seo?.noIndex
-  const follow = !seo?.noFollow
+  const isProtected = Array.isArray(proposal.passwords) && proposal.passwords.length > 0
+  const index = isProtected ? false : !seo?.noIndex
+  const follow = isProtected ? false : !seo?.noFollow
 
   return {
     title,
@@ -91,6 +109,19 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
   
   if (!proposal) {
     notFound()
+  }
+
+  // Enforce password protection if configured
+  const passwords: string[] = Array.isArray(proposal.passwords) ? proposal.passwords : []
+  if (passwords.length > 0) {
+    const cookieName = `proposal_auth_${proposalSlug}`
+    const cookieStore = await cookies()
+    const token = cookieStore.get(cookieName)?.value
+    const valid = token ? passwords.some((p) => signToken(proposalSlug, p) === token) : false
+
+    if (!valid) {
+      return <PasswordGate slug={proposalSlug} />
+    }
   }
 
   // Find active tab index based on tab slug or default to 0
