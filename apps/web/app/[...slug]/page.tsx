@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { client, groq } from '@/lib/sanity'
 import ProposalContent from '@/components/ProposalContent'
+import PasswordProtection from '@/components/PasswordProtection'
 
 interface ProposalPageProps {
   params: Promise<{ slug: string[] }>
@@ -20,6 +21,7 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
     title,
     tabs,
     googleDoc,
+    passwords,
     preparedBy->{
       _id,
       firstName,
@@ -54,14 +56,16 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
   }
 
   return (
-    <ProposalContent
-      tabs={proposal.tabs || []}
-      proposalSlug={proposalSlug}
-      activeTabIndex={activeTabIndex}
-      company={proposal.company}
-      googleDocUrl={proposal.googleDoc}
-      preparedBy={proposal.preparedBy}
-    />
+    <PasswordProtection passwords={proposal.passwords}>
+      <ProposalContent
+        tabs={proposal.tabs || []}
+        proposalSlug={proposalSlug}
+        activeTabIndex={activeTabIndex}
+        company={proposal.company}
+        googleDocUrl={proposal.googleDoc}
+        preparedBy={proposal.preparedBy}
+      />
+    </PasswordProtection>
   )
 }
 

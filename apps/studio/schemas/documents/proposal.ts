@@ -51,6 +51,14 @@ const proposal = defineType({
         }),
       group: 'content',
     },
+    {
+      name: 'passwords',
+      title: 'Password Protection',
+      type: 'array',
+      description: 'Optional passwords to protect this proposal. Add multiple passwords for different users. Leave empty for public access.',
+      of: [{ type: 'string' }],
+      group: 'content',
+    },
     seo,
     {
       name: 'createdAt',
