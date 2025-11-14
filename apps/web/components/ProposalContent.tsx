@@ -374,58 +374,40 @@ export default function ProposalContent({
                       onClick={() => navigateToTab(section.tabIndex)}
                       disabled={isNavigating}
                       className={cn(
-                        "flex items-center w-full text-left px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium group relative overflow-hidden",
+                        "flex items-center w-full text-left px-3 py-2 rounded-full transition-all duration-200 text-sm font-medium group",
                         activeTabIndex === section.tabIndex
-                          ? "bg-white text-black shadow-lg"
-                          : "text-gray-300 hover:text-white hover:bg-white/5 active:scale-[0.98]",
-                        isNavigating && "opacity-50 cursor-not-allowed"
+                          ? "bg-blue-600 text-white"
+                          : "text-white hover:bg-white hover:bg-opacity-10"
                       )}
                     >
-                      {/* Active indicator */}
-                      {activeTabIndex === section.tabIndex && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-black rounded-r-full" />
-                      )}
-                      
                       {/* Document icon */}
-                      <div className="flex-shrink-0 mr-3 transition-transform duration-200 group-hover:scale-110">
-                        <FileText className={cn(
-                          "w-4 h-4 transition-colors duration-200",
-                          activeTabIndex === section.tabIndex ? "text-black" : "text-gray-400 group-hover:text-white"
-                        )} />
+                      <div className="flex-shrink-0 mr-3">
+                        <div className="w-4 h-4 border border-white rounded-sm flex items-center justify-center opacity-100">
+                          <div className="w-2 h-2 border-t border-white"></div>
+                        </div>
                       </div>
-                      <span className="truncate flex-1">{section.title}</span>
-                      
-                      {/* Arrow indicator for active */}
-                      {activeTabIndex === section.tabIndex && (
-                        <svg className="w-4 h-4 ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      )}
+                      <span className="truncate">{section.title}</span>
                     </button>
                     
-                    {/* Headings within this section with vertical line - animated expand */}
+                    {/* Headings within this section with vertical line */}
                     {section.headings.length > 0 && activeTabIndex === section.tabIndex && (
-                      <div className="relative ml-5 mt-2 animate-in slide-in-from-top-2 duration-300">
-                        {/* Gradient vertical line */}
-                        <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-white/50 via-white/30 to-transparent"></div>
+                      <div className="relative ml-5 mt-2">
+                        {/* White vertical line */}
+                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-white"></div>
                         
-                        <div className="pl-5 space-y-0.5">
-                          {section.headings.map((heading, idx) => (
+                        <div className="pl-4 space-y-1">
+                          {section.headings.map((heading) => (
                             <button
                               key={heading.id}
                               onClick={() => scrollToHeading(heading.id)}
-                              style={{ animationDelay: `${idx * 50}ms` }}
                               className={cn(
-                                "block w-full text-left py-1.5 px-2 rounded text-xs transition-all duration-200 hover:bg-white/5 hover:translate-x-1 animate-in fade-in slide-in-from-left-2",
-                                heading.level === 'h1' && "text-gray-200 font-medium",
-                                heading.level === 'h2' && "text-gray-300 ml-2",
-                                heading.level === 'h3' && "text-gray-400 ml-4"
+                                "block w-full text-left py-1 text-sm transition-colors hover:text-white",
+                                heading.level === 'h1' && "text-white font-medium",
+                                heading.level === 'h2' && "text-white ml-2 opacity-90",
+                                heading.level === 'h3' && "text-white ml-4 opacity-80"
                               )}
                             >
-                              <span className="flex items-center">
-                                <span className="w-1.5 h-1.5 rounded-full bg-white/40 mr-2 flex-shrink-0" />
-                                {heading.text}
-                              </span>
+                              {heading.text}
                             </button>
                           ))}
                         </div>
@@ -448,15 +430,12 @@ export default function ProposalContent({
                   href={googleDocUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center w-full px-4 py-2.5 text-sm font-medium text-black bg-white rounded-lg hover:bg-gray-100 active:scale-95 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium text-black bg-white rounded-md hover:bg-gray-100 transition-colors duration-200"
                 >
                   <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
                   </svg>
                   Open in Google Doc
-                  <svg className="w-3 h-3 ml-1 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
                 </a>
               </div>
             )}
