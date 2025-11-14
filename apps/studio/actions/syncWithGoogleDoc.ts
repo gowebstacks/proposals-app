@@ -25,9 +25,16 @@ interface GoogleDocsParagraph {
         bold?: boolean
         italic?: boolean
         underline?: boolean
+        link?: {
+          url?: string
+        }
       }
     }
   }>
+  paragraphStyle?: {
+    namedStyleType?: string
+    headingId?: string
+  }
 }
 
 interface GoogleDocsStructuralElement {
@@ -91,6 +98,27 @@ function genKey(): string {
     return anyCrypto.randomUUID().replace(/-/g, '').slice(0, 12)
   }
   return Math.random().toString(36).slice(2, 14)
+}
+
+// Convert Google Docs named style to Portable Text style
+function getPortableTextStyle(namedStyleType?: string): 'normal' | 'h1' | 'h2' | 'h3' {
+  switch (namedStyleType) {
+    case 'HEADING_1':
+    case 'TITLE':
+      return 'h1'
+    case 'HEADING_2':
+    case 'SUBTITLE':
+      return 'h2'
+    case 'HEADING_3':
+      return 'h3'
+    case 'HEADING_4':
+    case 'HEADING_5':
+    case 'HEADING_6':
+      // Map lower headings to h3 since that's the maximum supported
+      return 'h3'
+    default:
+      return 'normal'
+  }
 }
 
 // Prefer our API route: returns JSON or 401 oauth_required
@@ -175,36 +203,133 @@ function flattenTabs(tabs: GoogleDocsTab[]): GoogleDocsTab[] {
 
 // Convert Google Docs content to portable text format
 function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: Array<{ title: string; content: PortableTextBlock[] }> } {
+  console.log('=== CONVERT TO PORTABLE TEXT STARTED ===')
+  console.log('Document structure:', JSON.stringify(doc, null, 2))
+  
   // If tabs are present, use them (API with includeTabsContent=true)
   if (doc.tabs && doc.tabs.length > 0) {
     console.log('Processing tabs from Google Docs API, count:', doc.tabs.length)
     const flatTabs = flattenTabs(doc.tabs)
+    console.log('Flattened tabs:', flatTabs.length)
+    
     const sanityTabs: Array<{ title: string; content: PortableTextBlock[] }> = []
     for (const tab of flatTabs) {
       const title = tab.tabProperties?.title || 'Untitled Tab'
+      console.log(`Processing tab: "${title}"`)
+      console.log('Full tab structure:', JSON.stringify(tab, null, 2))
+      
       const body = tab.documentTab?.body
-      if (!body?.content) continue
-      const lines: string[] = []
-      body.content.forEach((element) => {
+      console.log('Tab body:', body)
+      
+      if (!body?.content) {
+        console.log('No content in tab body, skipping')
+        continue
+      }
+      
+      console.log('Body content length:', body.content.length)
+      
+      const blocks: PortableTextBlock[] = []
+      
+      body.content.forEach((element, elementIndex) => {
+        console.log(`Processing element ${elementIndex}:`, JSON.stringify(element, null, 2))
+        
         if (element.paragraph) {
           const paragraph = element.paragraph
-          const text = paragraph.elements
-            .map((el: { textRun?: { content?: string } }) => el.textRun?.content || '')
-            .join('')
-            .trim()
-          if (text) lines.push(text)
+          console.log('Processing paragraph with elements:', paragraph.elements.length)
+          console.log('Paragraph style:', paragraph.paragraphStyle)
+          
+          const children: Array<{ _type: 'span'; text: string; _key: string; marks: string[] }> = []
+          const markDefs: Array<{ _key: string; _type: string; href?: string }> = []
+          
+          // Determine the block style based on Google Docs named style
+          const blockStyle = getPortableTextStyle(paragraph.paragraphStyle?.namedStyleType)
+          console.log(`Determined block style: ${blockStyle} from ${paragraph.paragraphStyle?.namedStyleType}`)
+          
+          paragraph.elements.forEach((el, index) => {
+            console.log(`Element ${index}:`, JSON.stringify(el, null, 2))
+            
+            if (el.textRun?.content) {
+              let textContent = el.textRun.content
+              const textStyle = el.textRun.textStyle
+              console.log(`Raw text content: "${textContent}"`)
+              console.log(`Text style:`, textStyle)
+              
+              // Clean up text content - remove excessive whitespace but preserve single spaces
+              // Don't trim the very beginning of the first element to preserve indentation
+              if (index === 0) {
+                textContent = textContent.replace(/\s+$/g, '') // Only trim end
+              } else {
+                textContent = textContent.replace(/^\s+|\s+$/g, '') // Trim both ends for subsequent elements
+              }
+              
+              // Skip empty content after cleaning
+              if (!textContent) {
+                console.log('Skipping empty text content after cleanup')
+                return
+              }
+              
+              console.log(`Cleaned text content: "${textContent}"`)
+              
+              const marks: string[] = []
+              
+              // Generate mark key for links
+              let markKey: string | undefined
+              if (textStyle?.link?.url) {
+                markKey = genKey()
+                markDefs.push({
+                  _key: markKey,
+                  _type: 'link',
+                  href: textStyle.link.url
+                })
+                marks.push(markKey)
+                console.log(`Added link mark: ${markKey} -> ${textStyle.link.url}`)
+              }
+              
+              // Add style marks
+              if (textStyle?.bold) {
+                marks.push('strong')
+                console.log('Added bold mark')
+              }
+              if (textStyle?.italic) {
+                marks.push('em')
+                console.log('Added italic mark')
+              }
+              if (textStyle?.underline) {
+                marks.push('underline')
+                console.log('Added underline mark')
+              }
+              
+              const span = {
+                _type: 'span' as const,
+                text: textContent,
+                _key: genKey(),
+                marks
+              }
+              console.log('Created span:', span)
+              children.push(span)
+            }
+          })
+          
+          // Only add block if there's actual content
+          if (children.some(child => child.text.trim())) {
+            const block = {
+              _type: 'block' as const,
+              style: blockStyle,
+              _key: genKey(),
+              markDefs,
+              children
+            }
+            console.log('Created block:', JSON.stringify(block, null, 2))
+            blocks.push(block)
+          }
         }
       })
-      const blocks: PortableTextBlock[] = lines.map(line => ({
-        _type: 'block',
-        style: 'normal',
-        _key: genKey(),
-        markDefs: [],
-        children: [{ _type: 'span', text: line, _key: genKey(), marks: [] }],
-      }))
+      
+      console.log(`Created ${blocks.length} blocks for tab "${title}"`)
       sanityTabs.push({ title, content: blocks })
     }
-    console.log('Converted to Sanity tabs:', sanityTabs.length)
+    console.log('Converted to Sanity tabs with formatting:', sanityTabs.length)
+    console.log('=== CONVERT TO PORTABLE TEXT COMPLETED ===')
     return { title: doc.title || doc.documentId || 'Google Document', tabs: sanityTabs }
   }
 
@@ -213,19 +338,106 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
   if (!doc.body?.content) {
     return { title: doc.title || doc.documentId || 'Google Document', tabs: [] }
   }
-  const lines: string[] = []
+  
+  const blocks: PortableTextBlock[] = []
+  
   doc.body.content.forEach((element) => {
     if (element.paragraph) {
       const paragraph = element.paragraph
-      const text = paragraph.elements
-        .map((el: { textRun?: { content?: string } }) => el.textRun?.content || '')
-        .join('')
-        .trim()
-      if (text) lines.push(text)
+      console.log('Fallback: Processing paragraph with elements:', paragraph.elements.length)
+      console.log('Fallback: Paragraph style:', paragraph.paragraphStyle)
+      
+      const children: Array<{ _type: 'span'; text: string; _key: string; marks: string[] }> = []
+      const markDefs: Array<{ _key: string; _type: string; href?: string }> = []
+      
+      // Determine the block style based on Google Docs named style
+      const blockStyle = getPortableTextStyle(paragraph.paragraphStyle?.namedStyleType)
+      console.log(`Fallback: Determined block style: ${blockStyle} from ${paragraph.paragraphStyle?.namedStyleType}`)
+      
+      paragraph.elements.forEach((el, index) => {
+        console.log(`Fallback element ${index}:`, JSON.stringify(el, null, 2))
+        
+        if (el.textRun?.content) {
+          let textContent = el.textRun.content
+          const textStyle = el.textRun.textStyle
+          console.log(`Fallback raw text content: "${textContent}"`)
+          console.log(`Fallback text style:`, textStyle)
+          
+          // Clean up text content - remove excessive whitespace but preserve single spaces
+          // Don't trim the very beginning of the first element to preserve indentation
+          if (index === 0) {
+            textContent = textContent.replace(/\s+$/g, '') // Only trim end
+          } else {
+            textContent = textContent.replace(/^\s+|\s+$/g, '') // Trim both ends for subsequent elements
+          }
+          
+          // Skip empty content after cleaning
+          if (!textContent) {
+            console.log('Fallback skipping empty text content after cleanup')
+            return
+          }
+          
+          console.log(`Fallback cleaned text content: "${textContent}"`)
+          
+          const marks: string[] = []
+          
+          // Generate mark key for links
+          let markKey: string | undefined
+          if (textStyle?.link?.url) {
+            markKey = genKey()
+            markDefs.push({
+              _key: markKey,
+              _type: 'link',
+              href: textStyle.link.url
+            })
+            marks.push(markKey)
+            console.log(`Fallback added link mark: ${markKey} -> ${textStyle.link.url}`)
+          }
+          
+          // Add style marks
+          if (textStyle?.bold) {
+            marks.push('strong')
+            console.log('Fallback added bold mark')
+          }
+          if (textStyle?.italic) {
+            marks.push('em')
+            console.log('Fallback added italic mark')
+          }
+          if (textStyle?.underline) {
+            marks.push('underline')
+            console.log('Fallback added underline mark')
+          }
+          
+          const span = {
+            _type: 'span' as const,
+            text: textContent,
+            _key: genKey(),
+            marks
+          }
+          console.log('Fallback created span:', span)
+          children.push(span)
+        }
+      })
+      
+      // Only add block if there's actual content
+      if (children.some(child => child.text.trim())) {
+        const block = {
+          _type: 'block' as const,
+          style: blockStyle,
+          _key: genKey(),
+          markDefs,
+          children
+        }
+        console.log('Fallback created block:', JSON.stringify(block, null, 2))
+        blocks.push(block)
+      }
     }
   })
-  const merged = lines.join('\n')
-  return convertPlainTextToPortableText(doc.title || doc.documentId || 'Google Document', merged)
+  
+  return { 
+    title: doc.title || doc.documentId || 'Google Document', 
+    tabs: [{ title: 'Content', content: blocks }] 
+  }
 }
 
 // Convert plain text to portable text with tab splitting
@@ -335,7 +547,10 @@ export const SyncWithGoogleDocAction: DocumentActionComponent = ({
   const [permissions] = useDocumentPairPermissions({ id, type, permission: 'update' })
   const toast = useToast()
 
+  console.log('🔥 SYNC ACTION LOADED - NEW VERSION')
+
   const handleSync = async () => {
+    console.log('🚀 SYNC STARTED - NEW VERSION')
     setSyncing(true)
     
     try {

@@ -108,9 +108,6 @@ export default function ProposalContent({
                       {/* Display active tab content */}
                       <div className="border border-gray-200 rounded-lg bg-white/50">
                         <div className="p-8">
-                          <h2 className="text-3xl font-light text-black mb-8 tracking-tight">
-                            {tabs[activeTab]?.title || `Section ${activeTab + 1}`}
-                          </h2>
                           <div className="space-y-6 text-gray-700 leading-relaxed">
                             <PortableText value={tabs[activeTab]?.content || []} />
                             
