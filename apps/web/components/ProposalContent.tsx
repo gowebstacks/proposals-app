@@ -12,6 +12,7 @@ import type { TypedObject } from '@portabletext/types'
 import { urlForImage } from '@/lib/sanity'
 import { RoomProvider } from '@/lib/liveblocks'
 import { cn } from '@/lib/utils'
+import Logo from '@/components/Logo'
 
 // Dynamic import to avoid SSR issues with Liveblocks (temporarily disabled)
 // const LiveblocksCopilot = dynamic(() => import('@/components/LiveblocksCopilot'), {
@@ -327,46 +328,7 @@ export default function ProposalContent({
                   Prepared for
                 </h3>
                 <div className="flex items-center space-x-3">
-                  {(() => {
-                    console.log('🏢 Company data:', company)
-                    console.log('🖼️ logoOnLight:', company.logoOnLight)
-                    console.log('🖼️ logoOnDark:', company.logoOnDark)
-                    console.log('🖼️ logomarkOnLight:', company.logomarkOnLight)
-                    console.log('🖼️ logomarkOnDark:', company.logomarkOnDark)
-                    
-                    // Try different logo fields in order of preference
-                    const logo = company.logoOnLight || company.logoOnDark || company.logomarkOnLight || company.logomarkOnDark
-                    
-                    if (logo) {
-                      const imageUrl = urlForImage(logo).url()
-                      console.log('🔗 Generated image URL:', imageUrl)
-                      return (
-                        <div className="flex-shrink-0">
-                          <Image
-                            src={imageUrl}
-                            alt={company.name}
-                            width={60}
-                            height={60}
-                            className="object-contain bg-white rounded p-1"
-                            onError={(e) => console.error('❌ Image failed to load:', e)}
-                            onLoad={() => console.log('✅ Image loaded successfully')}
-                          />
-                        </div>
-                      )
-                    } else {
-                      console.log('⚠️ No logo found in any field')
-                      return (
-                        <div className="flex-shrink-0 w-14 h-14 bg-gray-600 rounded flex items-center justify-center">
-                          <span className="text-white text-lg font-bold">
-                            {company.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )
-                    }
-                  })()}
-                  <div>
-                    <p className="text-white font-medium text-sm">{company.name}</p>
-                  </div>
+                  <Logo company={company} size={125} theme="dark" />
                 </div>
               </div>
             ) : (

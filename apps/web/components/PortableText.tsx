@@ -20,7 +20,7 @@ interface SanityTableHeader {
 }
 
 interface SanityTableCell {
-  content: string
+  content: TypedObject[]
 }
 
 interface SanityTableRow {
@@ -277,7 +277,43 @@ const components: Partial<PortableTextReactComponents> = {
                         key={cellIndex}
                         className="px-4 py-3 text-sm text-gray-700 border-b border-gray-200 last:border-b-0"
                       >
-                        {cell.content}
+                        {cell.content && cell.content.length > 0 ? (
+                          <div className="text-sm">
+                            <PortableTextComponent 
+                              value={cell.content} 
+                              components={{
+                                block: {
+                                  normal: ({ children }: { children?: React.ReactNode }) => (
+                                    <p className="text-sm text-gray-700 leading-relaxed mb-0 font-light">{children}</p>
+                                  ),
+                                },
+                                marks: {
+                                  strong: ({ children }: { children?: React.ReactNode }) => (
+                                    <strong className="font-semibold text-black">{children}</strong>
+                                  ),
+                                  em: ({ children }: { children?: React.ReactNode }) => (
+                                    <em className="italic font-medium">{children}</em>
+                                  ),
+                                  underline: ({ children }: { children?: React.ReactNode }) => (
+                                    <u className="underline decoration-1 underline-offset-1">{children}</u>
+                                  ),
+                                  link: ({ children, value }: { children?: React.ReactNode; value?: { href?: string } }) => (
+                                    <a 
+                                      href={value?.href} 
+                                      className="text-blue-600 hover:text-blue-700 underline decoration-1 underline-offset-1 transition-colors"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      {children}
+                                    </a>
+                                  ),
+                                },
+                              }} 
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
+                        )}
                       </td>
                     ))}
                   </tr>

@@ -1,3 +1,5 @@
+import TableCellEditor from '../../components/TableCellEditor'
+
 export const table = {
   name: 'table',
   title: 'Table',
@@ -72,8 +74,40 @@ export const table = {
                     {
                       name: 'content',
                       title: 'Cell Content',
-                      type: 'text',
-                      rows: 3,
+                      type: 'array',
+                      validation: (Rule: { optional: () => unknown }) => Rule.optional(),
+                      of: [
+                        {
+                          type: 'block',
+                          styles: [
+                            { title: 'Normal', value: 'normal' },
+                          ],
+                          lists: [
+                            { title: 'Bullet', value: 'bullet' },
+                            { title: 'Numbered', value: 'number' },
+                          ],
+                          marks: {
+                            decorators: [
+                              { title: 'Strong', value: 'strong' },
+                              { title: 'Emphasis', value: 'em' },
+                              { title: 'Underline', value: 'underline' },
+                            ],
+                            annotations: [
+                              {
+                                type: 'object',
+                                name: 'link',
+                                fields: [
+                                  {
+                                    name: 'href',
+                                    type: 'url',
+                                    title: 'URL',
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                        },
+                      ],
                     },
                     {
                       name: 'align',
@@ -102,12 +136,12 @@ export const table = {
                       align: 'align',
                       isHeader: 'isHeader',
                     },
-                    prepare(selection: any) {
+                    prepare(selection: { content?: string; align?: string; isHeader?: boolean }) {
                       const { content, align, isHeader } = selection
                       const text = content || 'Empty cell'
                       return {
                         title: text,
-                        subtitle: `${align}${isHeader ? ' (header)' : ''}`,
+                        subtitle: `${align || 'left'}${isHeader ? ' (header)' : ''}`,
                       }
                     },
                   },
@@ -119,7 +153,7 @@ export const table = {
             select: {
               cells: 'cells',
             },
-            prepare(selection: any) {
+            prepare(selection: { cells?: Array<{ content?: string }> }) {
               const { cells } = selection
               const cellCount = cells?.length || 0
               const firstCellText = cells?.[0]?.content || 'Empty'
@@ -174,7 +208,7 @@ export const table = {
       headers: 'headers',
       rows: 'rows',
     },
-    prepare(selection: any) {
+    prepare(selection: { title?: string; headers?: Array<{ text?: string }>; rows?: Array<{ cells?: Array<{ content?: string }> }> }) {
       const { title, headers, rows } = selection
       const headerCount = headers?.length || 0
       const rowCount = rows?.length || 0

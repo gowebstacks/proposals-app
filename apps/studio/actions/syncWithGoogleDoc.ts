@@ -9,7 +9,7 @@ import type { DocumentActionComponent } from 'sanity'
 import type { PortableTextBlock } from '../schemas/fields/canvas'
 
 type SanityTableHeader = { text: string; alignment?: 'left' | 'center' | 'right' }
-type SanityTableCell = { content: string }
+type SanityTableCell = { content: PortableTextBlock[] }
 type SanityTableRow = { cells: SanityTableCell[] }
 type SanityTableNode = { _type: 'table'; caption?: string; headers: SanityTableHeader[]; rows: SanityTableRow[] }
 type PTContent = PortableTextBlock | SanityTableNode
@@ -77,6 +77,96 @@ function firstParagraphAlignment(elements?: GoogleDocsStructuralElement[]): stri
     }
   }
   return undefined
+}
+
+// Extract portable text from structural elements for table cells
+function extractPortableTextFromStructuralElements(elements?: GoogleDocsStructuralElement[], doc?: GoogleDocsDocument): { blocks: Array<{ _type: 'block'; style: 'normal' | 'h1' | 'h2' | 'h3'; _key: string; markDefs: Array<{ _key: string; _type: string; href?: string }>; children: Array<{ _type: 'span'; text: string; _key: string; marks: string[] }>; listItem?: 'bullet' | 'number'; level?: number }> } {
+  if (!elements || elements.length === 0) {
+    return { blocks: [] }
+  }
+  
+  const blocks: Array<{ _type: 'block'; style: 'normal' | 'h1' | 'h2' | 'h3'; _key: string; markDefs: Array<{ _key: string; _type: string; href?: string }>; children: Array<{ _type: 'span'; text: string; _key: string; marks: string[] }>; listItem?: 'bullet' | 'number'; level?: number }> = []
+  
+  for (const el of elements) {
+    if (el.paragraph) {
+      const children: Array<{ _type: 'span'; text: string; _key: string; marks: string[] }> = []
+      const markDefs: Array<{ _key: string; _type: string; href?: string }> = []
+      
+      // Process text runs within the paragraph
+      for (const pe of el.paragraph.elements) {
+        if (pe.textRun?.content) {
+          let textContent = pe.textRun.content
+          const textStyle = pe.textRun.textStyle
+          
+          // Clean up text content similar to paragraph processing
+          textContent = textContent
+            .replace(/\n/g, ' ') // Convert newlines to spaces in table cells
+            .replace(/[^\t\n\r\u0020-\u007E]/g, ' ') // Remove non-printable chars
+            .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
+            .trim()
+          
+          if (!textContent) continue
+          
+          const marks: string[] = []
+          
+          // Generate mark key for links
+          let markKey: string | undefined
+          if (textStyle?.link?.url) {
+            markKey = genKey()
+            markDefs.push({
+              _key: markKey,
+              _type: 'link',
+              href: textStyle.link.url
+            })
+            marks.push(markKey)
+          }
+          
+          // Add style marks
+          if (textStyle?.bold) marks.push('strong')
+          if (textStyle?.italic) marks.push('em')
+          if (textStyle?.underline) marks.push('underline')
+          
+          children.push({
+            _type: 'span',
+            text: textContent,
+            _key: genKey(),
+            marks
+          })
+        }
+      }
+      
+      // Skip empty paragraphs
+      if (children.length === 0) continue
+      
+      // Handle bullet points
+      const bullet = (el.paragraph as { bullet?: { listId?: string; nestingLevel?: number } }).bullet
+      let listItem: 'bullet' | 'number' | undefined
+      let level: number | undefined
+      
+      if (bullet && doc && doc.lists) {
+        const listId = bullet.listId
+        const nestingLevel = typeof bullet.nestingLevel === 'number' ? bullet.nestingLevel : 0
+        const glyphType = listId && doc.lists[listId]?.listProperties?.nestingLevels?.[nestingLevel]?.glyphType
+        listItem = glyphType && /DECIMAL|ROMAN|ALPHA|NUMBER/i.test(String(glyphType)) ? 'number' : 'bullet'
+        level = nestingLevel + 1
+      }
+      
+      // Create block with list information if present
+      const block = {
+        _type: 'block' as const,
+        style: 'normal' as const,
+        _key: genKey(),
+        markDefs,
+        children,
+        ...(listItem ? { listItem } : {}),
+        ...(level ? { level } : {}),
+      }
+      
+      blocks.push(block)
+    }
+  }
+  
+  return { blocks }
 }
 
 function mapAlignment(alignment?: string): 'left' | 'center' | 'right' {
@@ -453,7 +543,16 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
               return { text, alignment: align }
             })
             const rows: SanityTableRow[] = tableRows.slice(1).map((row) => ({
-              cells: (row.tableCells || []).map((cell) => ({ content: extractTextFromStructuralElements(cell.content) })),
+              cells: (row.tableCells || []).map((cell) => {
+                const portableTextData = extractPortableTextFromStructuralElements(cell.content, doc)
+                if (portableTextData.blocks.length > 0) {
+                  return {
+                    content: portableTextData.blocks
+                  }
+                } else {
+                  return { content: [] }
+                }
+              }),
             }))
             const tableNode: SanityTableNode = {
               _type: 'table',
@@ -521,7 +620,7 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
               .replace(/\n+$/, '') // Remove trailing newlines only
           }
 
-          textContent = textContent.replace(/[\x00-\x08\x0A-\x1F\x7F]/g, ' ')
+          textContent = textContent.replace(/[^\x20-\x7E]/g, ' ')
 
           // Convert remaining lone newlines inside a paragraph to single spaces
           textContent = textContent.replace(/\n/g, ' ')
@@ -626,7 +725,16 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
           return { text, alignment: align }
         })
         const rows: SanityTableRow[] = tableRows.slice(1).map((row) => ({
-          cells: (row.tableCells || []).map((cell) => ({ content: extractTextFromStructuralElements(cell.content) })),
+          cells: (row.tableCells || []).map((cell) => {
+            const portableTextData = extractPortableTextFromStructuralElements(cell.content, doc)
+            if (portableTextData.blocks.length > 0) {
+              return {
+                content: portableTextData.blocks
+              }
+            } else {
+              return { content: [] }
+            }
+          }),
         }))
         const tableNode: SanityTableNode = {
           _type: 'table',
@@ -661,7 +769,7 @@ function parsePlainTextLineToPT(
   let match: RegExpExecArray | null
 
   // Ensure we operate on the original line (preserve spacing), but normalize control chars
-  const source = line.replace(/[\x00-\x08\x0B-\x1F\x7F]/g, ' ')
+  const source = line.replace(/[^\x20-\x7E]/g, ' ')
 
   while ((match = urlRegex.exec(source)) !== null) {
     const start = match.index
