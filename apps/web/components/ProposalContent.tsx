@@ -428,8 +428,12 @@ export default function ProposalContent({
                   rel="noopener noreferrer"
                   className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium text-black bg-white rounded-md hover:bg-gray-100 transition-colors duration-200"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                  <svg className="w-4 h-4 mr-2" viewBox="0 0 73 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clipPath="url(#clip0_1:149)">
+                      <path d="M45.1923 0H6.77885C3.05048 0 0 3.06818 0 6.81818V93.1818C0 96.9318 3.05048 100 6.77885 100H65.5288C69.2572 100 72.3077 96.9318 72.3077 93.1818V27.2727L45.1923 0Z" fill="#4285F4"/>
+                      <path d="M18.0769 72.7273H54.2308V68.1818H18.0769V72.7273ZM18.0769 81.8182H45.1923V77.2727H18.0769V81.8182ZM18.0769 50V54.5455H54.2308V50H18.0769ZM18.0769 63.6364H54.2308V59.0909H18.0769V63.6364Z" fill="#F1F1F1"/>
+                      <path d="M45.1923 0V20.4545C45.1923 24.2216 48.2258 27.2727 51.9712 27.2727H72.3077L45.1923 0Z" fill="#A1C2FA"/>
+                    </g>
                   </svg>
                   Open in Google Doc
                 </a>
