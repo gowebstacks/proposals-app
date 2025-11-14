@@ -90,6 +90,8 @@ export default function ProposalContent({
 }: ProposalContentProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
+  const [indicatorStyle, setIndicatorStyle] = useState({ top: 0, height: 0 })
   const router = useRouter()
 
   // Generate tab slug from title
@@ -126,6 +128,48 @@ export default function ProposalContent({
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  // Track active heading on scroll
+  useEffect(() => {
+    const headingElements = document.querySelectorAll('h1[id], h2[id], h3[id]')
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveHeadingId(entry.target.id)
+          }
+        })
+      },
+      {
+        rootMargin: '-100px 0px -80% 0px',
+        threshold: 0
+      }
+    )
+
+    headingElements.forEach((element) => observer.observe(element))
+
+    return () => {
+      headingElements.forEach((element) => observer.unobserve(element))
+    }
+  }, [activeTabIndex])
+
+  // Update indicator position when active heading changes
+  useEffect(() => {
+    if (activeHeadingId) {
+      const activeButton = document.querySelector(`button[data-heading-id="${activeHeadingId}"]`)
+      if (activeButton) {
+        const container = activeButton.closest('.pl-4')
+        if (container) {
+          const containerRect = container.getBoundingClientRect()
+          const buttonRect = activeButton.getBoundingClientRect()
+          const top = buttonRect.top - containerRect.top
+          const height = buttonRect.height
+          setIndicatorStyle({ top, height })
+        }
+      }
+    }
+  }, [activeHeadingId])
 
   // Scroll to heading function
   const scrollToHeading = (headingId: string) => {
@@ -376,12 +420,6 @@ export default function ProposalContent({
                           : "text-white hover:bg-white hover:bg-opacity-10"
                       )}
                     >
-                      {/* Document icon */}
-                      <div className="flex-shrink-0 mr-3">
-                        <div className="w-4 h-4 border border-white rounded-sm flex items-center justify-center opacity-100">
-                          <div className="w-2 h-2 border-t border-white"></div>
-                        </div>
-                      </div>
                       <span className="truncate">{section.title}</span>
                     </button>
                     
@@ -391,16 +429,30 @@ export default function ProposalContent({
                         {/* White vertical line */}
                         <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-white"></div>
                         
-                        <div className="pl-4 space-y-1">
+                        <div className="pl-4 space-y-1 relative">
+                          {/* Single sliding blue indicator */}
+                          <div 
+                            className="absolute left-0 w-0.5 bg-blue-600 transition-all duration-300 ease-out z-10"
+                            style={{
+                              top: `${indicatorStyle.top}px`,
+                              height: `${indicatorStyle.height}px`,
+                              opacity: indicatorStyle.height > 0 ? 1 : 0
+                            }}
+                          ></div>
+                          
                           {section.headings.map((heading) => (
                             <button
                               key={heading.id}
+                              data-heading-id={heading.id}
                               onClick={() => scrollToHeading(heading.id)}
                               className={cn(
-                                "block w-full text-left py-1 text-sm transition-colors hover:text-white",
-                                heading.level === 'h1' && "text-white font-medium",
-                                heading.level === 'h2' && "text-white ml-2 opacity-90",
-                                heading.level === 'h3' && "text-white ml-4 opacity-80"
+                                "block w-full text-left py-1 px-2 text-sm text-white",
+                                heading.level === 'h1' 
+                                  ? "font-medium"
+                                  : heading.level === 'h2' 
+                                    ? "ml-2 opacity-90"
+                                    : "ml-4 opacity-80",
+                                activeHeadingId === heading.id && "opacity-100"
                               )}
                             >
                               {heading.text}
