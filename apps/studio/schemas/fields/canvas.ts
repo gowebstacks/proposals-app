@@ -69,7 +69,7 @@ const canvas = defineType({
               title: 'Table Headers',
               type: 'array',
               description: 'Column headers for the table',
-              validation: (Rule: any) => Rule.required().min(1),
+              validation: (Rule: { required(): any; min(num: number): any }) => Rule.required().min(1),
               of: [
                 {
                   type: 'object',
@@ -79,7 +79,7 @@ const canvas = defineType({
                       name: 'text',
                       title: 'Header Text',
                       type: 'string',
-                      validation: (Rule: any) => Rule.required(),
+                      validation: (Rule: { required(): any }) => Rule.required(),
                     },
                     {
                       name: 'alignment',
@@ -104,7 +104,7 @@ const canvas = defineType({
               title: 'Table Rows',
               type: 'array',
               description: 'Data rows for the table',
-              validation: (Rule: any) => Rule.required().min(1),
+              validation: (Rule) => Rule.required().min(1),
               of: [
                 {
                   type: 'object',
@@ -125,17 +125,59 @@ const canvas = defineType({
                               title: 'Cell Content',
                               type: 'text',
                               rows: 1,
-                              validation: (Rule: any) => Rule.required(),
+                              validation: (Rule: { required(): any }) => Rule.required(),
                             },
                           ],
+                          preview: {
+                            select: {
+                              content: 'content',
+                            },
+                            prepare({ content }: { content?: string }) {
+                              return {
+                                title: content || 'Empty cell',
+                                subtitle: 'Cell data',
+                              }
+                            },
+                          },
                         },
                       ],
                     },
                   ],
+                  preview: {
+                    select: {
+                      cells: 'cells',
+                    },
+                    prepare({ cells }: { cells?: Array<{ content?: string }> }) {
+                      const cellCount = cells?.length || 0
+                      const firstCell = cells?.[0]?.content || ''
+                      const truncatedFirst = firstCell.length > 30 ? firstCell.substring(0, 30) + '...' : firstCell
+                      return {
+                        title: `Row with ${cellCount} cell${cellCount === 1 ? '' : 's'}`,
+                        subtitle: truncatedFirst || 'Empty row',
+                      }
+                    },
+                  },
                 },
               ],
             },
           ],
+          preview: {
+            select: {
+              caption: 'caption',
+              headers: 'headers',
+              rows: 'rows',
+            },
+            prepare({ caption, headers, rows }: { caption?: string; headers?: unknown[]; rows?: unknown[] }) {
+              const headerCount = headers?.length || 0
+              const rowCount = rows?.length || 0
+              const title = caption || `${headerCount}×${rowCount} Table`
+              const subtitle = `${headerCount} column${headerCount === 1 ? '' : 's'}, ${rowCount} row${rowCount === 1 ? '' : 's'}`
+              return {
+                title,
+                subtitle,
+              }
+            },
+          },
         },
       ],
       description: 'Rich text content for the canvas',

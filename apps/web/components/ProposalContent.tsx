@@ -187,7 +187,7 @@ export default function ProposalContent({
                         {/* Display active tab content */}
                         <div className="bg-white">
                           <div className="py-12">
-                            <div style={{ maxWidth: '656px' }}>
+                            <div>
                               <PortableText value={tabs[activeTabIndex]?.content || []} />
                               
                               {/* Show raw data for debugging if no content */}
