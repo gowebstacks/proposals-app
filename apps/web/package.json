@@ -11,10 +11,15 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@liveblocks/client": "^3.10.1",
+    "@liveblocks/react": "^3.10.1",
+    "@liveblocks/react-ui": "^3.10.1",
     "@portabletext/react": "^5.0.0",
     "@portabletext/types": "^3.0.0",
-    "@radix-ui/react-separator": "^1.1.0",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
     "@repo/ui": "workspace:*",
     "@sanity/client": "^7.6.0",

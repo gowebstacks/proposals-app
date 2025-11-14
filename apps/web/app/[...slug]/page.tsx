@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { client, groq } from '@/lib/sanity'
-import ProposalContent from '@/components/ProposalContent'
+import ProposalWithComments from '@/components/ProposalWithComments'
 
 interface ProposalPageProps {
   params: Promise<{ slug: string[] }>
@@ -83,7 +83,7 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
   }
 
   return (
-    <ProposalContent
+    <ProposalWithComments
       tabs={proposal.tabs || []}
       proposalSlug={proposalSlug}
       activeTabIndex={activeTabIndex}
