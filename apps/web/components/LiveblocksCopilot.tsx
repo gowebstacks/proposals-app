@@ -13,22 +13,16 @@ interface LiveblocksCopilotProps {
     email: string
     avatar?: string
   }
-  proposalTitle?: string
-  companyName?: string
-  proposalContent?: string
+  proposalData?: any
 }
 
 function CopilotComponent({ 
   roomId, 
-  proposalTitle, 
-  companyName, 
-  proposalContent,
+  proposalData,
   onClose
 }: { 
   roomId: string
-  proposalTitle?: string
-  companyName?: string
-  proposalContent?: string
+  proposalData?: any
   onClose?: () => void
 }) {
   const { chats } = useAiChats()
@@ -36,11 +30,6 @@ function CopilotComponent({
   const deleteAiChat = useDeleteAiChat()
   const [showChatList, setShowChatList] = useState(false)
   const [currentChatId, setCurrentChatId] = useState(`${roomId}-ai-chat`)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-
-  useEffect(() => {
-    console.log('deleteConfirm state changed to:', deleteConfirm)
-  }, [deleteConfirm])
 
   const handleNewChat = () => {
     const newChatId = `chat-${Date.now()}`
@@ -49,14 +38,10 @@ function CopilotComponent({
     setShowChatList(false)
   }
 
-  
-  const confirmDelete = () => {
-    if (deleteConfirm) {
-      deleteAiChat(deleteConfirm)
-      if (currentChatId === deleteConfirm) {
-        setCurrentChatId(`${roomId}-ai-chat`)
-      }
-      setDeleteConfirm(null)
+  const handleDeleteChat = (chatId: string) => {
+    deleteAiChat(chatId)
+    if (currentChatId === chatId) {
+      setCurrentChatId(`${roomId}-ai-chat`)
     }
   }
 
@@ -102,10 +87,7 @@ function CopilotComponent({
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      console.log('Delete button clicked in list, chatId:', chat.id)
-                      console.log('About to setDeleteConfirm to:', chat.id)
-                      setDeleteConfirm(chat.id)
-                      console.log('setDeleteConfirm called')
+                      handleDeleteChat(chat.id)
                     }}
                     className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
                     title="Delete conversation"
@@ -119,47 +101,16 @@ function CopilotComponent({
               </div>
             ))
           ) : (
-            <div className="px-4 py-8 text-center text-gray-500 text-sm">
-              No conversations yet
+            <div className="px-4 py-8 text-center">
+              <p className="text-gray-500 text-sm mb-4">No conversations yet</p>
+              <button
+                onClick={handleNewChat}
+                className="px-4 py-2 bg-black text-white text-sm rounded-md hover:bg-gray-800 transition-colors font-medium"
+              >
+                Start New Conversation
+              </button>
             </div>
           )}
-        </div>
-      </div>
-    )
-  }
-
-  // Delete confirmation dialog
-  if (deleteConfirm) {
-    console.log('Showing delete confirmation dialog for:', deleteConfirm)
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Delete conversation?</h3>
-          <p className="text-sm text-gray-600 mb-4">This action cannot be undone.</p>
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={() => {
-                console.log('Cancel clicked')
-                setDeleteConfirm(null)
-              }}
-              className="px-3 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                console.log('Delete confirmed for:', deleteConfirm)
-                deleteAiChat(deleteConfirm)
-                if (currentChatId === deleteConfirm) {
-                  setCurrentChatId(`${roomId}-ai-chat`)
-                }
-                setDeleteConfirm(null)
-              }}
-              className="px-3 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
-            >
-              Delete
-            </button>
-          </div>
         </div>
       </div>
     )
@@ -169,7 +120,12 @@ function CopilotComponent({
     <div className="fixed bottom-4 right-4 z-50 w-96 h-[500px] bg-white border border-gray-200 rounded-lg overflow-hidden">
       {/* Header with back button and close button */}
       <div className="group flex items-center justify-between px-3 py-4 border-b border-gray-200 bg-gray-50" style={{ height: '64px' }}>
-        <h3 className="text-sm font-semibold text-gray-900">AI Assistant</h3>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 bg-black rounded flex items-center justify-center">
+            <img src="/logo_logomark.svg" alt="WebStacks" className="w-4 h-4" />
+          </div>
+          <h3 className="text-sm font-semibold text-gray-900">AI Assistant</h3>
+        </div>
         <div className="flex items-center space-x-1">
           <button
             onClick={handleNewChat}
@@ -191,21 +147,6 @@ function CopilotComponent({
               <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
           </button>
-          <button 
-            className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200" 
-            title="Delete conversation"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              console.log('Delete button clicked, currentChatId:', currentChatId)
-              setDeleteConfirm(currentChatId)
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3,6 5,6 21,6"></polyline>
-              <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"></path>
-            </svg>
-          </button>
           <button
             onClick={onClose}
             className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
@@ -219,19 +160,10 @@ function CopilotComponent({
         </div>
       </div>
 
-      {/* Register knowledge about the proposal for AI context */}
+      {/* Register all proposal data as knowledge */}
       <RegisterAiKnowledge
-        description="The current proposal being viewed"
-        value={{
-          title: proposalTitle || "Untitled Proposal",
-          company: companyName || "Unknown Company",
-          content: proposalContent || "No content available"
-        }}
-      />
-      
-      <RegisterAiKnowledge
-        description="The type of document and context"
-        value="This is a business proposal document that contains sections with content, pricing, and project details. Help users understand, review, and provide feedback on this proposal."
+        description="Complete proposal data from Sanity CMS including all tabs, company information, prepared by details, and content"
+        value={proposalData || { message: "No proposal data available" }}
       />
       
       <div className="h-[calc(100%-60px)]">
@@ -243,47 +175,9 @@ function CopilotComponent({
       </div>
     </div>
   )
-
-  // Modern confirmation dialog
-  if (deleteConfirm) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-        <div className="bg-white rounded-lg max-w-sm w-full mx-4">
-          <div className="p-6">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
-              Delete Conversation
-            </h3>
-            <p className="text-sm text-gray-600 text-center mb-6">
-              Are you sure you want to delete this conversation? This action cannot be undone.
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
 }
 
-export default function LiveblocksCopilot({ roomId, proposalTitle }: LiveblocksCopilotProps) {
+export default function LiveblocksCopilot({ roomId, proposalData }: LiveblocksCopilotProps) {
   const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
@@ -314,14 +208,8 @@ export default function LiveblocksCopilot({ roomId, proposalTitle }: LiveblocksC
       }>
         <CopilotComponent 
           roomId={roomId} 
-          proposalTitle={proposalTitle}
+          proposalData={proposalData}
           onClose={() => setIsVisible(false)}
-        />
-        
-        {/* Register AI Knowledge - Proposal Content */}
-        <RegisterAiKnowledge
-          description="The current proposal document content including title, sections, and details"
-          value={proposalTitle || "Proposal document"}
         />
         
         {/* AI Tool: Summarize Document */}

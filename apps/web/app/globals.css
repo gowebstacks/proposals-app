@@ -177,34 +177,118 @@
   border-color: #333 !important;
 }
 
-/* Add padding back to message area for readability */
+/* Minimal padding for message area */
 .lb-ai-chat-messages,
 .lb-ai-chat-content,
 .lb-ai-chat-body,
 .lb-ai-chat .lb-ai-chat-messages,
 .lb-ai-chat .lb-messages,
 .lb-ai-chat .lb-message-list {
-  padding: 16px !important;
+  padding: 12px 0 !important;
 }
 
-/* Add padding to individual messages */
+/* Minimal padding for individual messages */
 .lb-ai-chat-message,
 .lb-message,
 .lb-ai-chat .lb-message,
 .lb-ai-chat .lb-ai-chat-message {
-  padding: 8px 0 !important;
+  padding: 4px 0 !important;
 }
 
-/* Add padding to any content area above the footer */
+/* Remove extra padding from content area */
 .lb-ai-chat > div:not(.lb-ai-chat-footer),
 .lb-ai-chat .lb-ai-chat-content-area,
 .lb-ai-chat .lb-chat-content {
-  padding: 16px !important;
+  padding: 0 !important;
+}
+
+/* Remove padding from message content */
+.lb-ai-chat-message-content,
+.lb-ai-chat .lb-ai-chat-message-content {
+  padding: 0 !important;
+}
+
+/* Remove margin from message text */
+.lb-ai-chat-message-text,
+.lb-root.lb-prose.lb-ai-chat-message-text {
+  margin: 0 !important;
+}
+
+.lb-ai-chat-message-text p {
+  margin: 0 0 8px 0 !important;
+}
+
+.lb-ai-chat-message-text p:last-child {
+  margin-bottom: 0 !important;
 }
 
 /* Remove shadows from all Liveblocks root elements within chat */
 .lb-ai-chat .lb-root {
   box-shadow: none !important;
+}
+
+/* Ensure stop button is visible and clickable */
+.lb-ai-chat [data-liveblocks-ai-chat-stop],
+.lb-ai-chat button[aria-label*="Stop"],
+.lb-ai-composer-action[aria-label*="Stop"],
+.lb-ai-chat .lb-button-stop {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: 10 !important;
+}
+
+/* Add avatar to assistant messages using ::before */
+.lb-ai-chat-assistant-message {
+  display: grid !important;
+  grid-template-columns: 24px 1fr !important;
+  gap: 12px !important;
+  align-items: start !important;
+}
+
+.lb-ai-chat-assistant-message::before {
+  content: '' !important;
+  display: block !important;
+  width: 24px !important;
+  height: 24px !important;
+  background-color: black !important;
+  background-image: url('/logo_logomark.svg') !important;
+  background-size: 60% !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  border-radius: 6px !important;
+}
+
+.lb-ai-chat-assistant-message .lb-ai-chat-message-content {
+  grid-column: 2 !important;
+}
+
+/* Style user messages as black bubbles with white text */
+.lb-ai-chat-user-message .lb-ai-chat-message-content {
+  background-color: black !important;
+  color: white !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  display: inline-block !important;
+  max-width: fit-content !important;
+}
+
+.lb-ai-chat-user-message .lb-ai-chat-message-text,
+.lb-ai-chat-user-message .lb-ai-chat-message-text p {
+  color: white !important;
+  margin: 0 !important;
+}
+
+/* Hide empty tool invocation divs */
+.lb-ai-chat-message-tool-invocation:empty {
+  display: none !important;
+}
+
+.lb-ai-chat-message-tool-invocation {
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
 }
 
 /* Custom styles for the proposal page */

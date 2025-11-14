@@ -525,9 +525,29 @@ export default function ProposalContent({
           name: 'Anonymous User',
           email: 'user@example.com'
         }}
-        proposalTitle={tabs[activeTabIndex]?.title || 'Proposal'}
-        companyName={company?.name}
-        proposalContent={JSON.stringify(tabs[activeTabIndex]?.content || [])}
+        proposalData={{
+          slug: proposalSlug,
+          currentTab: {
+            title: tabs[activeTabIndex]?.title,
+            index: activeTabIndex
+          },
+          tabs: tabs.map((tab, index) => ({
+            title: tab.title,
+            index: index,
+            hasContent: !!tab.content && tab.content.length > 0
+          })),
+          company: {
+            name: company?.name,
+            id: company?._id
+          },
+          preparedBy: preparedBy ? {
+            name: `${preparedBy.firstName} ${preparedBy.lastName}`,
+            firstName: preparedBy.firstName,
+            lastName: preparedBy.lastName,
+            role: preparedBy.role
+          } : null,
+          googleDocUrl: googleDocUrl
+        }}
       />
       </div>
     </RoomProvider>
