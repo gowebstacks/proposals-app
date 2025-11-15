@@ -77,6 +77,9 @@ const canvas = defineType({
         {
           type: 'accordion',
         },
+        {
+          type: 'pricingTable',
+        },
       ],
       description: 'Rich text content for the canvas',
     },
