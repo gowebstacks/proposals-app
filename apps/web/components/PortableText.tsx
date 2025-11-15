@@ -269,27 +269,10 @@ const components: Partial<PortableTextReactComponents> = {
     ),
   },
   listItem: {
-    bullet: ({ children, value }: { children?: React.ReactNode; value?: { level?: number } }) => {
-      // Determine nesting level based on the value's level property or default to 1
-      const level = value?.level || 1
-      
-      // Different dash styles for different nesting levels
-      const getDashStyle = (level: number) => {
-        switch (level) {
-          case 1:
-            return '—' // Em dash (longest)
-          case 2:
-            return '–' // En dash (medium)
-          case 3:
-            return '-' // Hyphen (shortest)
-          default:
-            return '·' // Bullet point for deeper nesting
-        }
-      }
-      
+    bullet: ({ children }: { children?: React.ReactNode }) => {
       return (
         <li className="flex items-start">
-          <span className="mr-3 text-gray-700 flex-shrink-0 text-lg">{getDashStyle(level)}</span>
+          <span className="flex-shrink-0 w-1.5 h-1.5 bg-gray-700 rounded-full mt-3 mr-2"></span>
           <span className="flex-1 text-lg">{children}</span>
         </li>
       )
@@ -382,19 +365,10 @@ const components: Partial<PortableTextReactComponents> = {
                                   ),
                                 },
                                 listItem: {
-                                  bullet: ({ children, value }: { children?: React.ReactNode; value?: { level?: number } }) => {
-                                    const level = value?.level || 1
-                                    const getDashStyle = (level: number) => {
-                                      switch (level) {
-                                        case 1: return '—'
-                                        case 2: return '–'
-                                        case 3: return '-'
-                                        default: return '·'
-                                      }
-                                    }
+                                  bullet: ({ children }: { children?: React.ReactNode }) => {
                                     return (
                                       <li className="flex items-start">
-                                        <span className="mr-2 text-gray-700 flex-shrink-0 text-sm">{getDashStyle(level)}</span>
+                                        <span className="flex-shrink-0 w-1.5 h-1.5 bg-gray-700 rounded-full mt-2 mr-2"></span>
                                         <span className="flex-1 text-sm">{children}</span>
                                       </li>
                                     )
