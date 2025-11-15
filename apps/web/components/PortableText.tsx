@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import type { TypedObject, PortableTextBlock } from '@portabletext/types'
 import Image from 'next/image'
 import { urlForImage } from '@/lib/sanity'
-import { ChevronLeft, ChevronRight, ChevronDown, Check, X, AlertTriangle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Check, X, AlertCircle } from '@geist-ui/icons'
 import * as Accordion from '@radix-ui/react-accordion'
 
 interface PortableTextProps {
@@ -461,9 +461,32 @@ function ScopeTableComponent({ value }: { value: SanityScopeTableNode }) {
   return <ScopeTableComponentGroups value={value} />
 }
 
+// Custom InformationFillSmall component
+function InformationFillSmall({ className }: { className?: string }) {
+  return (
+    <svg 
+      className={className}
+      viewBox="0 0 24 24" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="12" cy="12" r="10" fill="currentColor" />
+      <path 
+        d="M12 16V12M12 8H12.01" 
+        stroke="white" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 // Scope Table Groups Component (for new schema structure)
 function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
-  const [openItems, setOpenItems] = useState<string[]>([])
+  const [openItems, setOpenItems] = useState<string[]>(
+    value.scopeGroups?.map(group => group.groupName) || []
+  )
 
   if (!value.scopeGroups || value.scopeGroups.length === 0) return null
 
@@ -474,7 +497,7 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
         <div className="bg-white border-b border-gray-200">
           <div
             className="grid"
-            style={{ gridTemplateColumns: `1fr repeat(${value.options.length}, 1fr)` }}
+            style={{ gridTemplateColumns: `1.25fr repeat(${value.options.length}, 1fr)` }}
           >
             <div className="text-left p-4 text-base font-medium text-gray-900 border-r border-gray-200">
               Scope
@@ -513,9 +536,6 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
                       <ChevronDown className="w-4 h-4 transition-transform duration-200 data-[state=open]:rotate-180" />
                       {group.groupName}
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {group.items?.length || 0} item{group.items?.length !== 1 ? 's' : ''}
-                    </div>
                   </Accordion.Trigger>
                 </Accordion.Header>
 
@@ -524,35 +544,36 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
                       {group.items?.map((scopeItem, itemIndex) => (
                         <div
                           key={`${group.groupName}-${itemIndex}`}
-                          className={cn(
-                            'grid',
-                            itemIndex % 2 === 0 && 'bg-white',
-                            itemIndex % 2 === 1 && 'bg-gray-50'
-                          )}
-                          style={{ gridTemplateColumns: `1fr repeat(${value.options.length}, 1fr)` }}
+                          className="grid"
+                          style={{ gridTemplateColumns: `1.25fr repeat(${value.options.length}, 1fr)` }}
                         >
                           {/* Scope item cell */}
                           <div className="p-4 border-r border-gray-200">
-                            <div className={scopeItem.tooltip ? 'group relative' : ''}>
+                            <div className="">
                               <div>
-                                <div className="text-base text-gray-900">{scopeItem.item}</div>
+                                <div className="flex items-center gap-2">
+                                  <div className="[font-size:14px] text-gray-900">{scopeItem.item}</div>
+                                  {scopeItem.tooltip && (
+                                    <div className="group relative">
+                                      <InformationFillSmall className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                                      {/* Tooltip */}
+                                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                                        <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 w-80 shadow-lg">
+                                          {scopeItem.tooltip}
+                                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                            <div className="border-4 border-transparent border-t-gray-900"></div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                                 {scopeItem.description && (
                                   <div className="text-base text-gray-500 mt-1">
                                     {scopeItem.description}
                                   </div>
                                 )}
                               </div>
-                              {/* Tooltip */}
-                              {scopeItem.tooltip && (
-                                <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10">
-                                  <div className="bg-gray-900 text-white text-sm rounded-lg px-3 py-2 max-w-xs shadow-lg">
-                                    {scopeItem.tooltip}
-                                    <div className="absolute top-full left-4 -mt-1">
-                                      <div className="border-4 border-transparent border-t-gray-900"></div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           </div>
 
@@ -578,7 +599,7 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
                                   ) : availability.included === 'included' ? (
                                     <Check className="w-4 h-4 text-gray-600 mx-auto" />
                                   ) : availability.included === 'limited' ? (
-                                    <AlertTriangle className="w-4 h-4 text-orange-500 mx-auto" />
+                                    <AlertCircle className="w-4 h-4 text-orange-500 mx-auto" />
                                   ) : (
                                     <X className="w-4 h-4 text-gray-300 mx-auto" />
                                   )
