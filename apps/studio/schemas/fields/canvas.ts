@@ -80,6 +80,9 @@ const canvas = defineType({
         {
           type: 'pricingTable',
         },
+        {
+          type: 'scopeTable',
+        },
       ],
       description: 'Rich text content for the canvas',
     },

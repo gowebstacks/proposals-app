@@ -1,42 +1,33 @@
+import { TagIcon } from '@sanity/icons'
+
 export const pricingTable = {
   name: 'pricingTable',
   title: 'Pricing Table',
   type: 'object',
+  icon: TagIcon,
   fields: [
     {
-      name: 'title',
-      title: 'Section Title',
-      type: 'string',
-      description: 'Optional title for the pricing section',
-    },
-    {
-      name: 'subtitle',
-      title: 'Section Subtitle',
-      type: 'text',
-      description: 'Optional subtitle or description for the pricing section',
-    },
-    {
-      name: 'plans',
-      title: 'Pricing Plans',
+      name: 'options',
+      title: 'Pricing Options',
       type: 'array',
       of: [
         {
           type: 'object',
-          name: 'pricingPlan',
-          title: 'Pricing Plan',
+          name: 'pricingOption',
+          title: 'Pricing Option',
           fields: [
             {
               name: 'name',
-              title: 'Plan Name',
+              title: 'Option Name',
               type: 'string',
               description: 'e.g., Starter, Professional, Enterprise',
               validation: (Rule: { required: () => unknown }) => Rule.required(),
             },
             {
               name: 'description',
-              title: 'Plan Description',
+              title: 'Option Description',
               type: 'text',
-              description: 'Brief description of who this plan is for',
+              description: 'A brief description of this option',
             },
             {
               name: 'price',
@@ -141,9 +132,9 @@ export const pricingTable = {
             },
             {
               name: 'highlights',
-              title: 'Plan Highlights',
+              title: 'Option Highlights',
               type: 'array',
-              description: 'Key highlights that appear inside the plan card',
+              description: 'Key highlights that appear inside the option card',
               of: [
                 {
                   type: 'object',
@@ -229,195 +220,18 @@ export const pricingTable = {
         },
       ],
     },
-    {
-      name: 'layout',
-      title: 'Layout Options',
-      type: 'object',
-      fields: [
-        {
-          name: 'columns',
-          title: 'Columns per Row',
-          type: 'number',
-          description: 'How many pricing plans to show per row',
-          options: {
-            list: [
-              { title: '1 Column', value: 1 },
-              { title: '2 Columns', value: 2 },
-              { title: '3 Columns', value: 3 },
-              { title: '4 Columns', value: 4 },
-            ],
-          },
-          initialValue: 3,
-        },
-        {
-          name: 'spacing',
-          title: 'Card Spacing',
-          type: 'string',
-          options: {
-            list: [
-              { title: 'Tight', value: 'tight' },
-              { title: 'Normal', value: 'normal' },
-              { title: 'Loose', value: 'loose' },
-            ],
-          },
-          initialValue: 'normal',
-        },
-        {
-          name: 'alignment',
-          title: 'Text Alignment',
-          type: 'string',
-          options: {
-            list: [
-              { title: 'Left', value: 'left' },
-              { title: 'Center', value: 'center' },
-              { title: 'Right', value: 'right' },
-            ],
-          },
-          initialValue: 'center',
-        },
-      ],
-      options: {
-        collapsible: true,
-        collapsed: true,
-      },
-    },
-    {
-      name: 'styling',
-      title: 'Styling Options',
-      type: 'object',
-      fields: [
-        {
-          name: 'showBorders',
-          title: 'Show Card Borders',
-          type: 'boolean',
-          initialValue: true,
-        },
-        {
-          name: 'showShadows',
-          title: 'Show Card Shadows',
-          type: 'boolean',
-          initialValue: true,
-        },
-        {
-          name: 'roundedCorners',
-          title: 'Rounded Corners',
-          type: 'boolean',
-          initialValue: true,
-        },
-        {
-          name: 'backgroundColor',
-          title: 'Background Color',
-          type: 'string',
-          options: {
-            list: [
-              { title: 'White', value: 'white' },
-              { title: 'Light Gray', value: 'gray-50' },
-              { title: 'Blue', value: 'blue-50' },
-              { title: 'Transparent', value: 'transparent' },
-            ],
-          },
-          initialValue: 'white',
-        },
-      ],
-      options: {
-        collapsible: true,
-        collapsed: true,
-      },
-    },
-    {
-      name: 'featuresTable',
-      title: 'Features Table',
-      type: 'array',
-      description: 'Comparison table showing which features are included in each plan',
-      of: [
-        {
-          type: 'object',
-          fields: [
-            {
-              name: 'feature',
-              title: 'Feature Name',
-              type: 'string',
-              validation: (Rule: { required: () => unknown }) => Rule.required(),
-            },
-            {
-              name: 'description',
-              title: 'Feature Description',
-              type: 'text',
-              description: 'Optional description of what this feature includes',
-            },
-            {
-              name: 'planAvailability',
-              title: 'Plan Availability',
-              type: 'array',
-              of: [
-                {
-                  type: 'object',
-                  fields: [
-                    {
-                      name: 'planIndex',
-                      title: 'Plan Index',
-                      type: 'number',
-                      description: 'Index of the plan (0 = first plan, 1 = second plan, etc.)',
-                      validation: (Rule: { required: () => unknown }) => Rule.required(),
-                    },
-                    {
-                      name: 'included',
-                      title: 'Included',
-                      type: 'string',
-                      options: {
-                        list: [
-                          { title: '✓ Included', value: 'included' },
-                          { title: '⚠ Limited', value: 'limited' },
-                          { title: '✗ Not Included', value: 'not_included' },
-                          { title: 'Custom Text', value: 'custom' },
-                        ],
-                      },
-                      initialValue: 'included',
-                    },
-                    {
-                      name: 'customText',
-                      title: 'Custom Text',
-                      type: 'string',
-                      description: 'Custom text to show instead of included/not included',
-                      hidden: ({ parent }: { parent: { included: string } }) => parent?.included !== 'custom',
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-          preview: {
-            select: {
-              feature: 'feature',
-              planAvailability: 'planAvailability',
-            },
-            prepare(selection: { feature: string; planAvailability?: Array<{ included: string }> }) {
-              const { feature, planAvailability } = selection
-              const includedCount = planAvailability?.filter(p => p.included === 'included').length || 0
-              const totalCount = planAvailability?.length || 0
-              return {
-                title: feature,
-                subtitle: `Available in ${includedCount}/${totalCount} plans`,
-              }
-            },
-          },
-        },
-      ],
-    },
   ],
   preview: {
     select: {
-      title: 'title',
-      plans: 'plans',
+      options: 'options',
     },
-    prepare(selection: { title?: string; plans?: Array<{ name?: string }> }) {
-      const { title, plans } = selection
-      const planCount = plans?.length || 0
-      const planNames = plans?.map(p => p.name).filter(Boolean).join(', ') || 'No plans'
-      
+    prepare(selection: { options?: Array<{ name?: string }> }) {
+      const { options } = selection
+      const optionCount = options?.length || 0
+      const optionNames = options?.map(o => o.name).filter(Boolean).join(', ') || 'No options'
       return {
-        title: title || 'Pricing Table',
-        subtitle: `${planCount} plans: ${planNames}`,
+        title: `${optionCount} option${optionCount !== 1 ? 's' : ''}: ${optionNames}`,
+        subtitle: 'Pricing Table',
       }
     },
   },

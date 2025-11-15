@@ -24,6 +24,7 @@ export const schemaTypes = [
   modules.gallery,
   modules.accordion,
   modules.pricingTable,
+  modules.scopeTable,
   
   // Object schemas (reusable objects)
   // objects.exampleObject,

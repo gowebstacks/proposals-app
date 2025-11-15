@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import type { TypedObject, PortableTextBlock } from '@portabletext/types'
 import Image from 'next/image'
 import { urlForImage } from '@/lib/sanity'
-import { ChevronLeft, ChevronRight, Check, X, AlertTriangle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Check, X, AlertTriangle } from 'lucide-react'
 import * as Accordion from '@radix-ui/react-accordion'
 
 interface PortableTextProps {
@@ -73,7 +73,7 @@ interface SanityAccordionNode {
   items: SanityAccordionItem[]
 }
 
-interface SanityPricingPlan {
+interface SanityPricingOption {
   _key: string
   name: string
   description?: string
@@ -95,30 +95,45 @@ interface SanityPricingPlan {
 
 interface SanityPricingTableNode {
   _type: 'pricingTable'
-  title?: string
-  subtitle?: string
-  plans: SanityPricingPlan[]
-  layout?: {
-    columns?: number
-    alignment?: 'left' | 'center' | 'right'
-    spacing?: 'tight' | 'normal' | 'loose'
-  }
-  styling?: {
-    showBorders?: boolean
-    showShadows?: boolean
-    roundedCorners?: boolean
-    backgroundColor?: string
-  }
-  featuresTable?: Array<{
-    feature: string
+  options: SanityPricingOption[]
+}
+
+interface SanityScopeTableNode {
+  _type: 'scopeTable'
+  options: string[]
+  scopeGroups?: Array<{
+    groupName: string
+    items: Array<{
+      item: string
+      description?: string
+      tooltip?: string
+      optionAvailability: Array<{
+        optionIndex: number
+        included: 'included' | 'limited' | 'not_included' | 'custom'
+        customText?: string
+      }>
+    }>
+  }>
+  scopeItems?: Array<{
+    group?: string
+    item: string
     description?: string
-    planAvailability: Array<{
-      planIndex: number
+    tooltip?: string
+    optionAvailability: Array<{
+      optionIndex: number
       included: 'included' | 'limited' | 'not_included' | 'custom'
       customText?: string
     }>
   }>
 }
+
+// Legacy interface for backward compatibility
+interface LegacyPricingTableNode {
+  _type: 'pricingTable'
+  plans: SanityPricingOption[]
+}
+
+type PricingTableNode = SanityPricingTableNode | LegacyPricingTableNode
 
 // Gallery Component
 function GalleryComponent({ value }: { value: SanityGalleryNode }) {
@@ -255,9 +270,12 @@ function AccordionComponent({ value }: { value: SanityAccordionNode }) {
 }
 
 // Pricing Table Component
-function PricingTableComponent({ value }: { value: SanityPricingTableNode }) {
-  if (!value.plans || value.plans.length === 0) return null
+function PricingTableComponent({ value }: { value: PricingTableNode }) {
+  // Handle both old 'plans' and new 'options' field names for backward compatibility
+  const options = 'options' in value ? value.options : value.plans
+  if (!options || options.length === 0) return null
 
+  
   const getCurrencySymbol = (currency?: string) => {
     switch (currency) {
       case 'EUR': return '€'
@@ -267,101 +285,101 @@ function PricingTableComponent({ value }: { value: SanityPricingTableNode }) {
     }
   }
 
-  const columns = value.layout?.columns || 3
+  const formatCurrency = (amount?: number, currency?: string) => {
+    if (amount === undefined || amount === null) return ''
+    
+    const symbol = getCurrencySymbol(currency)
+    const formatted = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+    
+    return `${symbol}${formatted}`
+  }
 
   return (
     <div className="col-span-8">
-      {value.title && (
-        <h2 className="text-base font-medium text-gray-900 mb-2 text-center">
-          {value.title}
-        </h2>
-      )}
-      
-      {value.subtitle && (
-        <p className="text-base text-gray-600 mb-12 text-center max-w-2xl mx-auto">
-          {value.subtitle}
-        </p>
-      )}
-
-      <div className={cn(
-        "grid gap-0 border border-gray-200 rounded-t-lg overflow-hidden mt-6",
-        columns === 1 && "grid-cols-1",
-        columns === 2 && "grid-cols-1 md:grid-cols-2",
-        columns === 3 && "grid-cols-1 md:grid-cols-3",
-        columns === 4 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
-      )}>
-        {value.plans.map((plan, index) => (
+      <div className="grid gap-0 border border-gray-200 rounded-lg mt-6 grid-cols-1 md:grid-cols-3">
+        {options.map((option: SanityPricingOption, index: number) => (
           <div
-            key={plan._key}
+            key={option._key}
             className={cn(
-              "relative p-8 bg-white",
+              "relative p-7",
               index > 0 && "border-l border-gray-200",
-              plan.badge?.text && "bg-gray-50"
+              index === 0 && "rounded-l-lg",
+              index === options.length - 1 && "rounded-r-lg",
+              index === 1 ? "bg-white" : "bg-gray-50"
             )}
           >
             {/* Badge */}
-            {plan.badge?.text && (
+            {option.badge?.text && (
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-20">
-                <span className="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded border border-gray-200">
-                  {plan.badge.text}
+                <span className="px-2 py-1 text-xs font-medium text-white bg-black rounded">
+                  {option.badge.text}
                 </span>
               </div>
             )}
 
-            {/* Plan Header */}
+            {/* Option Header */}
             <div className="mb-8">
               <h3 className="text-base font-medium text-gray-900 mb-3">
-                {plan.name}
+                {option.name}
               </h3>
               
-              {plan.description && (
+              {option.description && (
                 <p className="text-base text-gray-600 mb-6">
-                  {plan.description}
+                  {option.description}
                 </p>
               )}
 
               {/* Price */}
-              {plan.price && (
+              {option.price && (
                 <div className="mb-6">
-                  {plan.price.type === 'custom' ? (
+                  {option.price.type === 'custom' ? (
                     <div className="text-base font-medium text-gray-900">
-                      {plan.price.customText}
+                      {option.price.customText}
                     </div>
-                  ) : plan.price.type === 'range' ? (
+                  ) : option.price.type === 'range' ? (
                     <div>
                       <span className="text-base font-medium text-gray-900">
-                        {getCurrencySymbol(plan.price.currency)}{plan.price.amount}
+                        {formatCurrency(option.price.amount, option.price.currency)}
                       </span>
                       <span className="text-base text-gray-700 mx-1">-</span>
                       <span className="text-base font-medium text-gray-900">
-                        {getCurrencySymbol(plan.price.currency)}{plan.price.maxAmount}
+                        {formatCurrency(option.price.maxAmount, option.price.currency)}
                       </span>
-                      <span className="text-base text-gray-600 ml-1">
-                        /{plan.price.period === 'custom' ? plan.price.customPeriod : plan.price.period}
-                      </span>
+                      {option.price.period !== 'once' && (
+                        <span className="text-base text-gray-600 ml-1">
+                          /{option.price.period === 'custom' ? option.price.customPeriod : option.price.period}
+                        </span>
+                      )}
                     </div>
-                  ) : plan.price.type === 'starting_from' ? (
+                  ) : option.price.type === 'starting_from' ? (
                     <div>
+                      <span className="text-base text-gray-600">Starting from </span>
                       <span className="text-base font-medium text-gray-900">
-                        {getCurrencySymbol(plan.price.currency)}{plan.price.amount}
+                        {formatCurrency(option.price.amount, option.price.currency)}
                       </span>
-                      <span className="text-base text-gray-600 ml-1">
-                        /{plan.price.period === 'custom' ? plan.price.customPeriod : plan.price.period}
-                      </span>
-                      <div className="text-base text-gray-600 mt-1">+ additional usage</div>
+                      {option.price.period !== 'once' && (
+                        <span className="text-base text-gray-600 ml-1">
+                          /{option.price.period === 'custom' ? option.price.customPeriod : option.price.period}
+                        </span>
+                      )}
                     </div>
-                  ) : plan.price.amount === 0 ? (
+                  ) : option.price.amount === 0 ? (
                     <div className="text-base font-medium text-gray-900">
                       Free forever.
                     </div>
                   ) : (
                     <div>
                       <span className="text-base font-medium text-gray-900">
-                        {getCurrencySymbol(plan.price.currency)}{plan.price.amount}
+                        {formatCurrency(option.price.amount, option.price.currency)}
                       </span>
-                      <span className="text-base text-gray-600 ml-1">
-                        /{plan.price.period === 'custom' ? plan.price.customPeriod : plan.price.period}
-                      </span>
+                      {option.price.period !== 'once' && (
+                        <span className="text-base text-gray-600 ml-1">
+                          /{option.price.period === 'custom' ? option.price.customPeriod : option.price.period}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -369,20 +387,17 @@ function PricingTableComponent({ value }: { value: SanityPricingTableNode }) {
             </div>
 
             {/* Highlights */}
-            {plan.highlights && plan.highlights.length > 0 && (
-              <div className="mb-8">
+            {option.highlights && option.highlights.length > 0 && (
+              <div>
                 <ul className="space-y-3">
-                  {plan.highlights.map((highlight, index) => (
+                  {option.highlights.map((highlight: { text: string; icon?: string }, index: number) => (
                     <li key={index} className="flex items-center">
-                      <span className="mr-3 text-base">
-                        {highlight.icon === 'check' && '✓'}
-                        {highlight.icon === 'lightning' && '⚡'}
-                        {highlight.icon === 'rocket' && '🚀'}
-                        {highlight.icon === 'chart' && '📊'}
-                        {highlight.icon === 'lock' && '🔒'}
-                        {highlight.icon === 'star' && '🌟'}
-                      </span>
-                      <span className="text-base text-gray-700">
+                      {highlight.icon && (
+                        <span className="mr-3">
+                          <Check className="w-4 h-4 text-gray-600" />
+                        </span>
+                      )}
+                      <span className="text-sm text-gray-500">
                         {highlight.text}
                       </span>
                     </li>
@@ -394,61 +409,194 @@ function PricingTableComponent({ value }: { value: SanityPricingTableNode }) {
         ))}
       </div>
 
-      {/* Features Table */}
-      {value.featuresTable && value.featuresTable.length > 0 && (
-        <div className="mt-0">
-          <div className="border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left p-4 text-base font-medium text-gray-900">
-                    Features
-                  </th>
-                  {value.plans.map((plan) => (
-                    <th key={plan._key} className="text-center p-4 text-base font-medium text-gray-900">
-                      {plan.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {value.featuresTable.map((featureRow, rowIndex) => (
-                  <tr key={rowIndex} className={cn("border-b border-gray-100", rowIndex % 2 === 0 && "bg-white")}>
-                    <td className="p-4">
-                      <div>
-                        <div className="text-base text-gray-900">{featureRow.feature}</div>
-                        {featureRow.description && (
-                          <div className="text-base text-gray-500 mt-1">{featureRow.description}</div>
-                        )}
-                      </div>
-                    </td>
-                    {value.plans.map((plan, planIndex) => {
-                      const availability = featureRow.planAvailability.find(p => p.planIndex === planIndex)
-                      return (
-                        <td key={plan._key} className="p-4 text-center">
-                          {availability ? (
-                            availability.included === 'custom' ? (
-                              <span className="text-base text-gray-700">{availability.customText}</span>
-                            ) : availability.included === 'included' ? (
-                              <Check className="w-4 h-4 text-gray-600 mx-auto" />
-                            ) : availability.included === 'limited' ? (
-                              <AlertTriangle className="w-4 h-4 text-orange-500 mx-auto" />
-                            ) : (
-                              <X className="w-4 h-4 text-gray-300 mx-auto" />
-                            )
-                          ) : (
-                            <X className="w-4 h-4 text-gray-300 mx-auto" />
-                          )}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    </div>
+  )
+}
+
+// Scope Table Component
+function ScopeTableComponent({ value }: { value: SanityScopeTableNode }) {
+  console.log('🔍 ScopeTableComponent received value:', JSON.stringify(value, null, 2))
+
+  // Handle both old and new schema structures for backward compatibility
+  if (value.scopeItems && (!value.scopeGroups || value.scopeGroups.length === 0)) {
+    // Old schema structure - convert to new grouped format
+    const groupedItems = value.scopeItems.reduce(
+      (acc: Record<string, typeof value.scopeItems>, item) => {
+        if (!item) return acc // Skip undefined items
+        const group = item.group || 'Ungrouped'
+        if (!acc[group]) acc[group] = []
+
+        const convertedItem = {
+          item: item.item || 'Unnamed Item',
+          description: item.description,
+          tooltip: item.tooltip,
+          optionAvailability: item.optionAvailability || [],
+        }
+
+        acc[group]!.push(convertedItem as {
+          item: string
+          description?: string
+          tooltip?: string
+          optionAvailability: Array<{
+            optionIndex: number
+            included: 'included' | 'limited' | 'not_included' | 'custom'
+            customText?: string
+          }>
+        })
+        return acc
+      },
+      {} as Record<string, typeof value.scopeItems>
+    )
+
+    const convertedGroups = Object.entries(groupedItems).map(([groupName, items]) => ({
+      groupName,
+      items,
+    }))
+
+    return <ScopeTableComponentGroups value={{ ...value, scopeGroups: convertedGroups }} />
+  }
+
+  if (!value.scopeGroups || value.scopeGroups.length === 0) return null
+
+  return <ScopeTableComponentGroups value={value} />
+}
+
+// Scope Table Groups Component (for new schema structure)
+function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
+  const [openItems, setOpenItems] = useState<string[]>([])
+
+  if (!value.scopeGroups || value.scopeGroups.length === 0) return null
+
+  return (
+    <div className="col-span-8">
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        {/* Table header */}
+        <div className="bg-white border-b border-gray-200">
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: `1fr repeat(${value.options.length}, 1fr)` }}
+          >
+            <div className="text-left p-4 text-base font-medium text-gray-900 border-r border-gray-200">
+              Scope
+            </div>
+            {value.options.map((optionName: string, optionIndex: number) => (
+              <div
+                key={optionIndex}
+                className={cn(
+                  'text-center p-4 text-base font-medium text-gray-900',
+                  optionIndex < value.options.length - 1 && 'border-r border-gray-200'
+                )}
+              >
+                {optionName}
+              </div>
+            ))}
           </div>
         </div>
-      )}
+
+        {/* Accordion groups */}
+        <Accordion.Root
+          type="multiple"
+          className="w-full"
+          value={openItems}
+          onValueChange={setOpenItems}
+        >
+          {value.scopeGroups.map((group) => {
+            return (
+              <Accordion.Item
+                key={group.groupName}
+                value={group.groupName}
+                className="border-b border-gray-100"
+              >
+                <Accordion.Header className="w-full">
+                  <Accordion.Trigger className="bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer w-full p-3 text-sm font-medium text-gray-700 border-b border-gray-200 text-left flex items-center justify-between group">
+                    <div className="flex items-center gap-2">
+                      <ChevronDown className="w-4 h-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+                      {group.groupName}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {group.items?.length || 0} item{group.items?.length !== 1 ? 's' : ''}
+                    </div>
+                  </Accordion.Trigger>
+                </Accordion.Header>
+
+                <Accordion.Content>
+                    <div className="divide-y divide-gray-100">
+                      {group.items?.map((scopeItem, itemIndex) => (
+                        <div
+                          key={`${group.groupName}-${itemIndex}`}
+                          className={cn(
+                            'grid',
+                            itemIndex % 2 === 0 && 'bg-white',
+                            itemIndex % 2 === 1 && 'bg-gray-50'
+                          )}
+                          style={{ gridTemplateColumns: `1fr repeat(${value.options.length}, 1fr)` }}
+                        >
+                          {/* Scope item cell */}
+                          <div className="p-4 border-r border-gray-200">
+                            <div className={scopeItem.tooltip ? 'group relative' : ''}>
+                              <div>
+                                <div className="text-base text-gray-900">{scopeItem.item}</div>
+                                {scopeItem.description && (
+                                  <div className="text-base text-gray-500 mt-1">
+                                    {scopeItem.description}
+                                  </div>
+                                )}
+                              </div>
+                              {/* Tooltip */}
+                              {scopeItem.tooltip && (
+                                <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10">
+                                  <div className="bg-gray-900 text-white text-sm rounded-lg px-3 py-2 max-w-xs shadow-lg">
+                                    {scopeItem.tooltip}
+                                    <div className="absolute top-full left-4 -mt-1">
+                                      <div className="border-4 border-transparent border-t-gray-900"></div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Option availability cells */}
+                          {value.options.map((optionName: string, optionIndex: number) => {
+                            const availability = scopeItem.optionAvailability?.find(
+                              (o: { optionIndex: number }) => o.optionIndex === optionIndex
+                            )
+
+                            return (
+                              <div
+                                key={optionIndex}
+                                className={cn(
+                                  'p-4 text-center flex items-center justify-center',
+                                  optionIndex < value.options.length - 1 && 'border-r border-gray-200'
+                                )}
+                              >
+                                {availability ? (
+                                  availability.included === 'custom' ? (
+                                    <span className="text-base text-gray-700">
+                                      {availability.customText}
+                                    </span>
+                                  ) : availability.included === 'included' ? (
+                                    <Check className="w-4 h-4 text-gray-600 mx-auto" />
+                                  ) : availability.included === 'limited' ? (
+                                    <AlertTriangle className="w-4 h-4 text-orange-500 mx-auto" />
+                                  ) : (
+                                    <X className="w-4 h-4 text-gray-300 mx-auto" />
+                                  )
+                                ) : (
+                                  <span className="text-base text-gray-400">—</span>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                </Accordion.Content>
+              </Accordion.Item>
+            )
+          })}
+        </Accordion.Root>
+      </div>
     </div>
   )
 }
@@ -456,7 +604,6 @@ function PricingTableComponent({ value }: { value: SanityPricingTableNode }) {
 const components: Partial<PortableTextReactComponents> = {
   block: {
     h1: ({ children, value }: { children?: React.ReactNode; value?: PortableTextBlock }) => {
-      console.log('🎯 Rendering h1 block:', children)
       const headingId = value?._key || `h1-${Math.random().toString(36).slice(2)}`
       return <h1 id={headingId} className="text-5xl font-light text-black leading-tight tracking-tight col-start-2 col-span-6">{children}</h1>
     },
@@ -660,10 +807,15 @@ const components: Partial<PortableTextReactComponents> = {
         </div>
       )
     },
-    pricingTable: ({ value }: { value?: SanityPricingTableNode }) => {
+    pricingTable: ({ value }: { value?: PricingTableNode }) => {
       console.log('💰 Rendering pricing table:', value)
       if (!value) return null
       return <PricingTableComponent value={value} />
+    },
+    scopeTable: ({ value }: { value?: SanityScopeTableNode }) => {
+      console.log('📊 Rendering scope table:', value)
+      if (!value) return null
+      return <ScopeTableComponent value={value} />
     },
   },
 }

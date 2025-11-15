@@ -1,7 +1,10 @@
+import { ChevronDownIcon } from '@sanity/icons'
+
 export const accordion = {
   name: 'accordion',
   title: 'Accordion',
   type: 'object',
+  icon: ChevronDownIcon,
   fields: [
     {
       name: 'title',
