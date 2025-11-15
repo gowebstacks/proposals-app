@@ -1,17 +1,17 @@
-export const faq = {
-  name: 'faq',
-  title: 'FAQ',
+export const accordion = {
+  name: 'accordion',
+  title: 'Accordion',
   type: 'object',
   fields: [
     {
       name: 'title',
-      title: 'FAQ Title',
+      title: 'Accordion Title',
       type: 'string',
-      description: 'Optional title for the FAQ section',
+      description: 'Optional title for the accordion section',
     },
     {
       name: 'items',
-      title: 'FAQ Items',
+      title: 'Accordion Items',
       type: 'array',
       of: [
         {
@@ -22,7 +22,7 @@ export const faq = {
               title: 'Question',
               type: 'string',
               validation: (Rule: import('sanity').Rule) => Rule.required(),
-              description: 'The FAQ question',
+              description: 'The accordion question',
             },
             {
               name: 'answer',
@@ -30,7 +30,7 @@ export const faq = {
               type: 'array',
               of: [{ type: 'block' }],
               validation: (Rule: import('sanity').Rule) => Rule.required(),
-              description: 'The FAQ answer (supports rich text formatting)',
+              description: 'The accordion answer (supports rich text formatting)',
             },
           ],
           preview: {
@@ -64,8 +64,8 @@ export const faq = {
       const itemCount = items?.length || 0
       
       return {
-        title: title || 'FAQ Section',
-        subtitle: `${itemCount} FAQ item${itemCount === 1 ? '' : 's'}`,
+        title: title || 'Accordion Section',
+        subtitle: `${itemCount} accordion item${itemCount === 1 ? '' : 's'}`,
       }
     },
   },

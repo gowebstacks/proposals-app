@@ -61,16 +61,16 @@ interface SanityGalleryNode {
   caption?: string
 }
 
-interface SanityFAQItem {
+interface SanityAccordionItem {
   _key: string
   question: string
   answer: TypedObject[]
 }
 
-interface SanityFAQNode {
-  _type: 'faq'
+interface SanityAccordionNode {
+  _type: 'accordion'
   title?: string
-  items: SanityFAQItem[]
+  items: SanityAccordionItem[]
 }
 
 // Gallery Component
@@ -143,12 +143,12 @@ function GalleryComponent({ value }: { value: SanityGalleryNode }) {
   )
 }
 
-// FAQ Component
-function FAQComponent({ value }: { value: SanityFAQNode }) {
+// Accordion Component
+function AccordionComponent({ value }: { value: SanityAccordionNode }) {
   if (!value.items || value.items.length === 0) return null
   
   return (
-    <div className="col-start-2 col-span-6">
+    <div className="col-span-8">
       {value.title && (
         <h3 className="text-2xl font-medium text-black leading-tight mb-6">
           {value.title}
@@ -304,10 +304,10 @@ const components: Partial<PortableTextReactComponents> = {
       if (!value) return null
       return <GalleryComponent value={value} />
     },
-    faq: ({ value }: { value?: SanityFAQNode }) => {
-      console.log('❓ Rendering FAQ:', value)
+    accordion: ({ value }: { value?: SanityAccordionNode }) => {
+      console.log('❓ Rendering Accordion:', value)
       if (!value) return null
-      return <FAQComponent value={value} />
+      return <AccordionComponent value={value} />
     },
     table: ({ value }: { value?: SanityTableNode }) => {
       console.log('📊 Rendering table:', value)

@@ -92,6 +92,7 @@ interface ProposalContentProps {
   activeTabIndex: number
   company?: Company
   googleDocUrl?: string
+  calendarLink?: string
   preparedBy?: Person
 }
 
@@ -101,6 +102,7 @@ export default function ProposalContent({
   activeTabIndex,
   company,
   googleDocUrl,
+  calendarLink,
   preparedBy
 }: ProposalContentProps) {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -218,19 +220,34 @@ export default function ProposalContent({
       initialStorage={{}}
     >
       <div className="min-h-screen bg-white text-black">
-      {/* Fixed Header with Logo */}
-      <div className={cn(
-        "fixed top-0 left-0 z-40 transition-all duration-200",
-        isScrolled ? "bg-white/95 backdrop-blur-sm border-b border-gray-200" : "bg-white"
-      )} style={{ width: 'calc(100% - 320px)' }}>
-        <div className="px-8 py-6 flex items-center justify-start">
-          <Image 
-            src="/webstacks-logotype-onlight.svg" 
-            alt="Webstacks" 
-            width={75}
-            height={20}
-            className="h-5 w-auto"
-          />
+      {/* Fixed Header with Logo and optional Schedule button */}
+      <div
+        className={cn(
+          "fixed top-0 left-0 z-40 transition-all duration-200",
+          isScrolled ? "bg-white/95 backdrop-blur-sm border-b border-gray-200" : "bg-white"
+        )}
+        style={{ width: 'calc(100% - 320px)' }}
+      >
+        <div className="px-8 py-6 flex items-center justify-between">
+          <div className="flex items-center">
+            <Image
+              src="/webstacks-logotype-onlight.svg"
+              alt="Webstacks"
+              width={75}
+              height={20}
+              className="h-5 w-auto"
+            />
+          </div>
+          {calendarLink && (
+            <a
+              href={calendarLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-black rounded-full hover:bg-blue-600 transition-colors"
+            >
+              Schedule a call
+            </a>
+          )}
         </div>
       </div>
       

@@ -52,6 +52,17 @@ const proposal = defineType({
       group: 'content',
     },
     {
+      name: 'calendarLink',
+      title: 'Calendar Link',
+      type: 'url',
+      description: 'Link to schedule a meeting or event related to this proposal (e.g., Calendly, Google Calendar)',
+      validation: (Rule: Rule) =>
+        Rule.uri({
+          scheme: ['http', 'https'],
+        }),
+      group: 'content',
+    },
+    {
       name: 'passwords',
       title: 'Password Protection',
       type: 'array',

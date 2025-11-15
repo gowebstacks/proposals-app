@@ -1,4 +1,4 @@
 // Module schemas will be exported here
 export { table } from './table'
 export { gallery } from './gallery'
-export { faq } from './faq'
+export { accordion } from './accordion'

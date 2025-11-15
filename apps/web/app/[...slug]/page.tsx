@@ -88,6 +88,7 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
     title,
     tabs,
     googleDoc,
+    calendarLink,
     passwords,
     preparedBy->{
       _id,
@@ -142,6 +143,7 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
       activeTabIndex={activeTabIndex}
       company={proposal.company}
       googleDocUrl={proposal.googleDoc}
+      calendarLink={proposal.calendarLink}
       preparedBy={proposal.preparedBy}
     />
   )
