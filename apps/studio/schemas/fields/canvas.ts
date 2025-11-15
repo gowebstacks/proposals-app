@@ -74,6 +74,9 @@ const canvas = defineType({
         {
           type: 'gallery',
         },
+        {
+          type: 'faq',
+        },
       ],
       description: 'Rich text content for the canvas',
     },

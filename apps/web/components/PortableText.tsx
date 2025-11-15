@@ -1,12 +1,13 @@
 'use client'
 
+import React, { useState } from 'react'
 import { PortableText as PortableTextComponent, type PortableTextReactComponents } from '@portabletext/react'
 import { cn } from '@/lib/utils'
 import type { TypedObject, PortableTextBlock } from '@portabletext/types'
 import Image from 'next/image'
 import { urlForImage } from '@/lib/sanity'
-import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import * as Accordion from '@radix-ui/react-accordion'
 
 interface PortableTextProps {
   value: TypedObject[]
@@ -60,6 +61,18 @@ interface SanityGalleryNode {
   caption?: string
 }
 
+interface SanityFAQItem {
+  _key: string
+  question: string
+  answer: TypedObject[]
+}
+
+interface SanityFAQNode {
+  _type: 'faq'
+  title?: string
+  items: SanityFAQItem[]
+}
+
 // Gallery Component
 function GalleryComponent({ value }: { value: SanityGalleryNode }) {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -80,9 +93,9 @@ function GalleryComponent({ value }: { value: SanityGalleryNode }) {
   const currentImageUrl = urlForImage(currentSlideData.customImage)?.width(1200).url()
   
   return (
-    <div className="my-8 col-span-8">
+    <div className="col-span-8">
       {value.caption && (
-        <p className="text-sm font-medium text-gray-600 mb-3 text-center">
+        <p className="text-sm font-medium text-gray-600 text-center">
           {value.caption}
         </p>
       )}
@@ -130,26 +143,90 @@ function GalleryComponent({ value }: { value: SanityGalleryNode }) {
   )
 }
 
+// FAQ Component
+function FAQComponent({ value }: { value: SanityFAQNode }) {
+  if (!value.items || value.items.length === 0) return null
+  
+  return (
+    <div className="col-start-2 col-span-6">
+      {value.title && (
+        <h3 className="text-2xl font-medium text-black leading-tight mb-6">
+          {value.title}
+        </h3>
+      )}
+      
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <Accordion.Root type="multiple" className="w-full">
+          {value.items.map((item) => (
+            <Accordion.Item
+              key={item._key}
+              value={item._key}
+              className="border-b border-gray-200 last:border-b-0"
+            >
+              <Accordion.Header className="w-full">
+                <Accordion.Trigger className="w-full px-6 py-4 text-left bg-white hover:bg-gray-50 transition-colors duration-150 flex items-center justify-between group">
+                  <span className="text-base font-medium text-gray-900 text-left">
+                    {item.question}
+                  </span>
+                  <span className="shrink-0 data-[state=open]:rotate-90">
+                    <ChevronRight 
+                      className="w-5 h-5 text-gray-500 transition-transform duration-150"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </Accordion.Trigger>
+              </Accordion.Header>
+              
+              <Accordion.Content className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                <div className="text-gray-700 leading-relaxed">
+                  <PortableTextComponent 
+                    value={item.answer} 
+                    components={{
+                      block: {
+                        normal: ({ children }: { children?: React.ReactNode }) => (
+                          <p className="mb-4 last:mb-0">{children}</p>
+                        ),
+                      },
+                      marks: {
+                        strong: ({ children }: { children?: React.ReactNode }) => (
+                          <strong className="font-semibold">{children}</strong>
+                        ),
+                        em: ({ children }: { children?: React.ReactNode }) => (
+                          <em className="italic">{children}</em>
+                        ),
+                      },
+                    }}
+                  />
+                </div>
+              </Accordion.Content>
+            </Accordion.Item>
+          ))}
+        </Accordion.Root>
+      </div>
+    </div>
+  )
+}
+
 const components: Partial<PortableTextReactComponents> = {
   block: {
     h1: ({ children, value }: { children?: React.ReactNode; value?: PortableTextBlock }) => {
       console.log('🎯 Rendering h1 block:', children)
       const headingId = value?._key || `h1-${Math.random().toString(36).slice(2)}`
-      return <h1 id={headingId} className="text-5xl font-light text-black mb-8 leading-tight tracking-tight col-start-2 col-span-6">{children}</h1>
+      return <h1 id={headingId} className="text-5xl font-light text-black leading-tight tracking-tight col-start-2 col-span-6">{children}</h1>
     },
     h2: ({ children, value }: { children?: React.ReactNode; value?: PortableTextBlock }) => {
       console.log('🎯 Rendering h2 block:', children)
       const headingId = value?._key || `h2-${Math.random().toString(36).slice(2)}`
-      return <h2 id={headingId} className="text-4xl font-light text-black mb-6 leading-tight tracking-tight col-start-2 col-span-6">{children}</h2>
+      return <h2 id={headingId} className="text-4xl font-light text-black leading-tight tracking-tight col-start-2 col-span-6">{children}</h2>
     },
     h3: ({ children, value }: { children?: React.ReactNode; value?: PortableTextBlock }) => {
       console.log('🎯 Rendering h3 block:', children)
       const headingId = value?._key || `h3-${Math.random().toString(36).slice(2)}`
-      return <h3 id={headingId} className="text-2xl font-medium text-black mb-4 leading-tight col-start-2 col-span-6">{children}</h3>
+      return <h3 id={headingId} className="text-2xl font-medium text-black leading-tight col-start-2 col-span-6">{children}</h3>
     },
     normal: ({ children }: { children?: React.ReactNode }) => {
       console.log('📄 Rendering normal block:', children)
-      return <p className="text-lg text-gray-800 leading-relaxed mb-6 font-light col-start-2 col-span-6">{children}</p>
+      return <p className="text-lg text-gray-800 leading-relaxed font-light col-start-2 col-span-6">{children}</p>
     },
   },
   marks: {
@@ -181,12 +258,12 @@ const components: Partial<PortableTextReactComponents> = {
   },
   list: {
     bullet: ({ children }: { children?: React.ReactNode }) => (
-      <ul className="mb-4 space-y-2 text-gray-700 col-start-2 col-span-6 [&_ul]:mt-2 [&_ul]:space-y-2" style={{ listStyleType: 'none' }}>
+      <ul className="space-y-2 text-gray-700 col-start-2 col-span-6 [&_ul]:mt-2 [&_ul]:space-y-2" style={{ listStyleType: 'none' }}>
         {children}
       </ul>
     ),
     number: ({ children }: { children?: React.ReactNode }) => (
-      <ol className="list-decimal list-inside mb-4 space-y-2 text-gray-700 col-start-2 col-span-6">
+      <ol className="list-decimal list-inside space-y-2 text-gray-700 col-start-2 col-span-6">
         {children}
       </ol>
     ),
@@ -227,6 +304,11 @@ const components: Partial<PortableTextReactComponents> = {
       if (!value) return null
       return <GalleryComponent value={value} />
     },
+    faq: ({ value }: { value?: SanityFAQNode }) => {
+      console.log('❓ Rendering FAQ:', value)
+      if (!value) return null
+      return <FAQComponent value={value} />
+    },
     table: ({ value }: { value?: SanityTableNode }) => {
       console.log('📊 Rendering table:', value)
       
@@ -246,9 +328,9 @@ const components: Partial<PortableTextReactComponents> = {
       }
       
       return (
-        <div className="my-8 col-span-8">
+        <div className="col-span-8">
           {caption && (
-            <p className="text-sm font-medium text-gray-600 mb-3 text-center">
+            <p className="text-sm font-medium text-gray-600 text-center">
               {caption}
             </p>
           )}
@@ -285,6 +367,40 @@ const components: Partial<PortableTextReactComponents> = {
                                 block: {
                                   normal: ({ children }: { children?: React.ReactNode }) => (
                                     <p className="text-sm text-gray-700 leading-relaxed mb-0 font-light">{children}</p>
+                                  ),
+                                },
+                                list: {
+                                  bullet: ({ children }: { children?: React.ReactNode }) => (
+                                    <ul className="space-y-1 text-gray-700" style={{ listStyleType: 'none' }}>
+                                      {children}
+                                    </ul>
+                                  ),
+                                  number: ({ children }: { children?: React.ReactNode }) => (
+                                    <ol className="list-decimal list-inside space-y-1 text-gray-700">
+                                      {children}
+                                    </ol>
+                                  ),
+                                },
+                                listItem: {
+                                  bullet: ({ children, value }: { children?: React.ReactNode; value?: { level?: number } }) => {
+                                    const level = value?.level || 1
+                                    const getDashStyle = (level: number) => {
+                                      switch (level) {
+                                        case 1: return '—'
+                                        case 2: return '–'
+                                        case 3: return '-'
+                                        default: return '·'
+                                      }
+                                    }
+                                    return (
+                                      <li className="flex items-start">
+                                        <span className="mr-2 text-gray-700 flex-shrink-0 text-sm">{getDashStyle(level)}</span>
+                                        <span className="flex-1 text-sm">{children}</span>
+                                      </li>
+                                    )
+                                  },
+                                  number: ({ children }: { children?: React.ReactNode }) => (
+                                    <li className="text-sm">{children}</li>
                                   ),
                                 },
                                 marks: {
@@ -360,7 +476,7 @@ export default function PortableText({ value, className }: PortableTextProps) {
   })
 
   return (
-    <div className={cn('grid grid-cols-8 gap-x-4 gap-y-0 justify-center', className)} style={{ gridTemplateColumns: 'repeat(8, minmax(10px, 1fr))' }}>
+    <div className={cn('grid grid-cols-8 gap-6 justify-center', className)} style={{ gridTemplateColumns: 'repeat(8, minmax(10px, 1fr))' }}>
       <PortableTextComponent value={value} components={components} />
     </div>
   )

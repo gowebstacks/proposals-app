@@ -9,6 +9,17 @@ import type { DocumentActionComponent } from 'sanity'
 import type { PortableTextBlock } from '../schemas/fields/canvas'
 
 type SanityTableHeader = { text: string; alignment?: 'left' | 'center' | 'right' }
+
+function removeControlChars(s: string): string {
+  let out = ''
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i)
+    if (code === 9 || code === 10 || code === 13 || (code >= 32 && code !== 127)) {
+      out += s[i]
+    }
+  }
+  return out
+}
 type SanityTableCell = { content: PortableTextBlock[] }
 type SanityTableRow = { cells: SanityTableCell[] }
 type SanityTableNode = { _type: 'table'; caption?: string; headers: SanityTableHeader[]; rows: SanityTableRow[] }
@@ -56,11 +67,11 @@ function extractTextFromStructuralElements(elements?: GoogleDocsStructuralElemen
     if (el.paragraph) {
       for (const pe of el.paragraph.elements) {
         if (pe.textRun?.content) {
-          const cleaned = pe.textRun.content
-            .replace(/\n/g, ' ')
-            .replace(/[^\t\n\r\u0020-\u007E]/g, ' ')
-            .replace(/\s{2,}/g, ' ')
-            .trim()
+          let cleaned = pe.textRun.content
+          cleaned = cleaned.replace(/\n/g, ' ')
+          cleaned = cleaned.replace(/\u00A0/g, ' ')
+          cleaned = removeControlChars(cleaned)
+          cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
           if (cleaned) parts.push(cleaned)
         }
       }
@@ -98,13 +109,17 @@ function extractPortableTextFromStructuralElements(elements?: GoogleDocsStructur
           let textContent = pe.textRun.content
           const textStyle = pe.textRun.textStyle
           
-          // Clean up text content similar to paragraph processing
+          // Clean up text content similar to paragraph processing but preserve spacing for marks
           textContent = textContent
-            .replace(/\n/g, ' ') // Convert newlines to spaces in table cells
-            .replace(/[^\t\n\r\u0020-\u007E]/g, ' ') // Remove non-printable chars
-            .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
-            .trim()
-          
+            .replace(/\n/g, ' ')
+            .replace(/\u00A0/g, ' ')
+          textContent = removeControlChars(textContent)
+
+          // Preserve whitespace-only spans by collapsing to single space
+          if (/^\s+$/.test(textContent)) {
+            textContent = ' '
+          }
+
           if (!textContent) continue
           
           const marks: string[] = []
@@ -135,8 +150,25 @@ function extractPortableTextFromStructuralElements(elements?: GoogleDocsStructur
         }
       }
       
+      // DEBUG: Log children before normalization
+      console.log('Table cell children before normalization:', JSON.stringify(children, null, 2))
+      
+      // Normalize adjacency: ensure a space between spans when neither side has boundary whitespace
+      const normalizedChildren: Array<{ _type: 'span'; text: string; _key: string; marks: string[] }> = []
+      for (const ch of children) {
+        const prev = normalizedChildren[normalizedChildren.length - 1]
+        if (prev) {
+          const prevEndsWithWs = /\s$/.test(prev.text)
+          const currStartsWithWs = /^\s/.test(ch.text)
+          if (!prevEndsWithWs && !currStartsWithWs) {
+            prev.text = prev.text + ' '
+          }
+        }
+        normalizedChildren.push(ch)
+      }
+
       // Skip empty paragraphs
-      if (children.length === 0) continue
+      if (normalizedChildren.length === 0) continue
       
       // Handle bullet points
       const bullet = (el.paragraph as { bullet?: { listId?: string; nestingLevel?: number } }).bullet
@@ -157,7 +189,7 @@ function extractPortableTextFromStructuralElements(elements?: GoogleDocsStructur
         style: 'normal' as const,
         _key: genKey(),
         markDefs,
-        children,
+        children: normalizedChildren,
         ...(listItem ? { listItem } : {}),
         ...(level ? { level } : {}),
       }
@@ -378,6 +410,8 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
     
     const sanityTabs: Array<{ title: string; content: PTContent[] }> = []
     for (const tab of flatTabs) {
+      console.log('🔍 Processing tab:', tab.tabProperties?.title)
+      console.log('🔍 Tab content types:', tab.documentTab?.body?.content?.map(el => Object.keys(el).filter(k => k !== 'startIndex' && k !== 'endIndex')))
       const title = tab.tabProperties?.title || 'Untitled Tab'
       console.log(`Processing tab: "${title}"`)
       console.log('Full tab structure:', JSON.stringify(tab, null, 2))
@@ -435,7 +469,7 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
                   .replace(/\n+$/, '') // Remove trailing newlines only
               }
 
-              textContent = textContent.replace(/[^\t\n\r\u0020-\u007E]/g, ' ')
+              textContent = removeControlChars(textContent)
 
               // Convert remaining lone newlines inside a paragraph to single spaces
               // since we already create separate blocks per paragraph
@@ -533,24 +567,31 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
             blocks.push(block)
           }
         } else if (element.table) {
+          console.log('🔍 TABLE FOUND - processing table with', element.table.tableRows?.length || 0, 'rows')
           const table = element.table
           const tableRows = table?.tableRows || []
           if (tableRows.length > 0) {
             const headerCells = tableRows[0]?.tableCells || []
-            const headers: SanityTableHeader[] = headerCells.map((cell) => {
-              const text = extractTextFromStructuralElements(cell.content)
-              const align = mapAlignment(firstParagraphAlignment(cell.content))
-              return { text, alignment: align }
-            })
+            const headers: SanityTableHeader[] = headerCells.map((cell) => ({
+              _key: genKey(),
+              text: extractTextFromStructuralElements(cell.content),
+              alignment: mapAlignment(firstParagraphAlignment(cell.content))
+            }))
             const rows: SanityTableRow[] = tableRows.slice(1).map((row) => ({
+              _key: genKey(),
               cells: (row.tableCells || []).map((cell) => {
+                console.log('🔍 Processing table cell - calling extractPortableTextFromStructuralElements')
                 const portableTextData = extractPortableTextFromStructuralElements(cell.content, doc)
                 if (portableTextData.blocks.length > 0) {
                   return {
+                    _key: genKey(),
                     content: portableTextData.blocks
                   }
                 } else {
-                  return { content: [] }
+                  return { 
+                    _key: genKey(),
+                    content: [] 
+                  }
                 }
               }),
             }))
@@ -620,7 +661,7 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
               .replace(/\n+$/, '') // Remove trailing newlines only
           }
 
-          textContent = textContent.replace(/[^\x20-\x7E]/g, ' ')
+          textContent = removeControlChars(textContent)
 
           // Convert remaining lone newlines inside a paragraph to single spaces
           textContent = textContent.replace(/\n/g, ' ')
@@ -715,24 +756,31 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
         blocks.push(block)
       }
     } else if (element.table) {
-      const table = element.table
+          console.log('🔍 FALLBACK: TABLE FOUND - processing table with', element.table.tableRows?.length || 0, 'rows')
+          const table = element.table
       const tableRows = table?.tableRows || []
       if (tableRows.length > 0) {
         const headerCells = tableRows[0]?.tableCells || []
-        const headers: SanityTableHeader[] = headerCells.map((cell) => {
-          const text = extractTextFromStructuralElements(cell.content)
-          const align = mapAlignment(firstParagraphAlignment(cell.content))
-          return { text, alignment: align }
-        })
+        const headers: SanityTableHeader[] = headerCells.map((cell) => ({
+          _key: genKey(),
+          text: extractTextFromStructuralElements(cell.content),
+          alignment: mapAlignment(firstParagraphAlignment(cell.content))
+        }))
         const rows: SanityTableRow[] = tableRows.slice(1).map((row) => ({
+          _key: genKey(),
           cells: (row.tableCells || []).map((cell) => {
+            console.log('🔍 Fallback: Processing table cell - calling extractPortableTextFromStructuralElements')
             const portableTextData = extractPortableTextFromStructuralElements(cell.content, doc)
             if (portableTextData.blocks.length > 0) {
               return {
+                _key: genKey(),
                 content: portableTextData.blocks
               }
             } else {
-              return { content: [] }
+              return { 
+                _key: genKey(),
+                content: [] 
+              }
             }
           }),
         }))
@@ -769,7 +817,7 @@ function parsePlainTextLineToPT(
   let match: RegExpExecArray | null
 
   // Ensure we operate on the original line (preserve spacing), but normalize control chars
-  const source = line.replace(/[^\x20-\x7E]/g, ' ')
+  const source = removeControlChars(line)
 
   while ((match = urlRegex.exec(source)) !== null) {
     const start = match.index

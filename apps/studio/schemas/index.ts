@@ -21,6 +21,7 @@ export const schemaTypes = [
   // Module schemas (reusable content blocks)
   modules.table,
   modules.gallery,
+  modules.faq,
   
   // Object schemas (reusable objects)
   // objects.exampleObject,
