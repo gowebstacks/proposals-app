@@ -539,7 +539,23 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
                   </Accordion.Trigger>
                 </Accordion.Header>
 
-                <Accordion.Content className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
+                <Accordion.Content 
+                  className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up"
+                  style={{
+                    // @ts-expect-error - Custom CSS variable for overflow handling
+                    '--accordion-overflow': 'hidden',
+                  }}
+                  onAnimationEnd={(e) => {
+                    const target = e.currentTarget;
+                    if (target.getAttribute('data-state') === 'open') {
+                      target.style.overflow = 'visible';
+                    }
+                  }}
+                  onAnimationStart={(e) => {
+                    const target = e.currentTarget;
+                    target.style.overflow = 'hidden';
+                  }}
+                >
                     <div className="divide-y divide-gray-100">
                       {group.items?.map((scopeItem, itemIndex) => (
                         <div
@@ -557,7 +573,7 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
                                     <div className="group relative">
                                       <InformationFillSmall className="w-4 h-4 text-gray-300 flex-shrink-0" />
                                       {/* Tooltip */}
-                                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50">
                                         <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 w-80 shadow-lg">
                                           {scopeItem.tooltip}
                                           <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
