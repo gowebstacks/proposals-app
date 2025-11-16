@@ -485,7 +485,7 @@ function InformationFillSmall({ className }: { className?: string }) {
 // Scope Table Groups Component (for new schema structure)
 function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
   const [openItems, setOpenItems] = useState<string[]>(
-    value.scopeGroups?.map(group => group.groupName) || []
+    value.scopeGroups?.[0]?.groupName ? [value.scopeGroups[0].groupName] : []
   )
 
   if (!value.scopeGroups || value.scopeGroups.length === 0) return null
@@ -539,7 +539,7 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
                   </Accordion.Trigger>
                 </Accordion.Header>
 
-                <Accordion.Content>
+                <Accordion.Content className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
                     <div className="divide-y divide-gray-100">
                       {group.items?.map((scopeItem, itemIndex) => (
                         <div
