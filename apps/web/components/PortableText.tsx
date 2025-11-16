@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import type { TypedObject, PortableTextBlock } from '@portabletext/types'
 import Image from 'next/image'
 import { urlForImage } from '@/lib/sanity'
-import { ChevronLeft, ChevronRight, ChevronDown, Check, X, AlertCircle } from '@geist-ui/icons'
+import { ChevronLeft, ChevronRight, ChevronDown, Check, AlertCircle } from '@geist-ui/icons'
 import * as Accordion from '@radix-ui/react-accordion'
 
 interface PortableTextProps {
@@ -593,7 +593,7 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
                               >
                                 {availability ? (
                                   availability.included === 'custom' ? (
-                                    <span className="text-base text-gray-700">
+                                    <span className="[font-size:14px] text-gray-700">
                                       {availability.customText}
                                     </span>
                                   ) : availability.included === 'included' ? (
@@ -601,7 +601,7 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
                                   ) : availability.included === 'limited' ? (
                                     <AlertCircle className="w-4 h-4 text-orange-500 mx-auto" />
                                   ) : (
-                                    <X className="w-4 h-4 text-gray-300 mx-auto" />
+                                    <span className="text-base text-gray-400">—</span>
                                   )
                                 ) : (
                                   <span className="text-base text-gray-400">—</span>
