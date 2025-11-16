@@ -62,34 +62,6 @@ export default defineType({
       validation: (Rule: Rule) => Rule.required(),
       description: 'The testimonial content in rich text format',
     },
-    {
-      name: 'rating',
-      title: 'Rating',
-      type: 'number',
-      options: {
-        list: [
-          { title: '1 Star', value: 1 },
-          { title: '2 Stars', value: 2 },
-          { title: '3 Stars', value: 3 },
-          { title: '4 Stars', value: 4 },
-          { title: '5 Stars', value: 5 },
-        ],
-      },
-      description: 'Optional star rating (1-5)',
-    },
-    {
-      name: 'date',
-      title: 'Date',
-      type: 'date',
-      description: 'Date the testimonial was given',
-    },
-    {
-      name: 'featured',
-      title: 'Featured',
-      type: 'boolean',
-      description: 'Mark as featured testimonial',
-      initialValue: false,
-    },
   ],
   preview: {
     select: {
@@ -98,10 +70,8 @@ export default defineType({
       personLastName: 'person.lastName',
       personCompany: 'person.company.name',
       content: 'content',
-      rating: 'rating',
-      featured: 'featured',
     },
-    prepare({ title, personFirstName, personLastName, personCompany, content, rating, featured }) {
+    prepare({ title, personFirstName, personLastName, personCompany, content }) {
       const personName = [personFirstName, personLastName].filter(i => i).join(' ')
       const displayTitle = title || `Testimonial from ${personName}`
       
@@ -120,8 +90,6 @@ export default defineType({
       const subtitle = [
         personName,
         personCompany && `(${personCompany})`,
-        rating && `★${rating}`,
-        featured && '⭐ Featured',
         contentPreview,
       ].filter(Boolean).join(' • ')
 
@@ -133,25 +101,10 @@ export default defineType({
   },
   orderings: [
     {
-      title: 'Date, New',
-      name: 'dateDesc',
+      title: 'Person Name',
+      name: 'personName',
       by: [
-        { field: 'date', direction: 'desc' },
-      ],
-    },
-    {
-      title: 'Date, Old',
-      name: 'dateAsc',
-      by: [
-        { field: 'date', direction: 'asc' },
-      ],
-    },
-    {
-      title: 'Featured First',
-      name: 'featuredFirst',
-      by: [
-        { field: 'featured', direction: 'desc' },
-        { field: 'date', direction: 'desc' },
+        { field: 'person.firstName', direction: 'asc' },
       ],
     },
   ],

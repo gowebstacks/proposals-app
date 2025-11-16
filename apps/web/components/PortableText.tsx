@@ -127,6 +127,23 @@ interface SanityScopeTableNode {
   }>
 }
 
+interface SanityTestimonialCardNode {
+  _type: 'testimonialCard'
+  testimonial: {
+    title?: string
+    content: TypedObject[]
+    person: {
+      firstName?: string
+      lastName?: string
+      role?: string
+      headshot?: SanityImage
+      company?: {
+        name?: string
+      }
+    }
+  }
+}
+
 // Legacy interface for backward compatibility
 interface LegacyPricingTableNode {
   _type: 'pricingTable'
@@ -459,6 +476,60 @@ function ScopeTableComponent({ value }: { value: SanityScopeTableNode }) {
   if (!value.scopeGroups || value.scopeGroups.length === 0) return null
 
   return <ScopeTableComponentGroups value={value} />
+}
+
+// Testimonial Card Component
+function TestimonialCardComponent({ value }: { value: SanityTestimonialCardNode }) {
+  if (!value.testimonial) return null
+
+  const { testimonial } = value
+  const person = testimonial.person
+  const personName = [person?.firstName, person?.lastName].filter(Boolean).join(' ')
+  const companyName = person?.company?.name
+
+  return (
+    <div className="col-start-2 col-span-6 py-6">
+      <div className="rounded-lg flex flex-col gap-6">
+        {/* Quote Content */}
+        <div className="relative">
+          <span className="absolute -left-4 top-0 text-[32px] leading-[36px] text-gray-900 font-serif">&ldquo;</span>
+          <div className="text-2xl text-gray-900 leading-relaxed font-light inline pl-1">
+            <PortableTextComponent 
+              value={testimonial.content} 
+              components={{
+                block: {
+                  normal: ({ children }) => <span>{children}</span>,
+                },
+              }}
+            />
+            <span className="text-[32px] leading-[36px] text-gray-900 font-serif ml-1">&rdquo;</span>
+          </div>
+        </div>
+
+        {/* Person Info */}
+        <div className="flex items-center gap-3 justify-end">
+          {person?.headshot && (
+            <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+              <Image
+                src={urlForImage(person.headshot)?.width(64).height(64).url() || ''}
+                alt={personName}
+                fill
+                className="object-cover"
+              />
+            </div>
+          )}
+          <div>
+            <div className="text-base font-medium text-gray-900">
+              {personName}
+              {companyName && (
+                <span className="text-gray-500 font-normal">, {companyName}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // Custom InformationFillSmall component
@@ -853,6 +924,11 @@ const components: Partial<PortableTextReactComponents> = {
       console.log('📊 Rendering scope table:', value)
       if (!value) return null
       return <ScopeTableComponent value={value} />
+    },
+    testimonialCard: ({ value }: { value?: SanityTestimonialCardNode }) => {
+      console.log('💬 Rendering testimonial card:', value)
+      if (!value) return null
+      return <TestimonialCardComponent value={value} />
     },
   },
 }

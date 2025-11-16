@@ -83,6 +83,9 @@ const canvas = defineType({
         {
           type: 'scopeTable',
         },
+        {
+          type: 'testimonialCard',
+        },
       ],
       description: 'Rich text content for the canvas',
     },

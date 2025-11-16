@@ -3,6 +3,7 @@
 import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { identifyUser, trackEvent } from "@/utils/segment"
+import PinInput from "./PinInput"
 
 type Props = { slug: string }
 
@@ -91,26 +92,23 @@ export default function PasswordGate({ slug }: Props) {
         ) : (
           <>
             <h1 className="text-xl font-semibold mb-2">Enter PIN</h1>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-gray-600 mb-6">
               Enter the PIN you were provided to view this proposal.
             </p>
-            <form onSubmit={onSubmitPin} className="space-y-3">
-              <input
-                type="password"
-                inputMode="numeric"
+            <form onSubmit={onSubmitPin} className="space-y-4">
+              <PinInput
+                length={6}
                 value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="PIN"
-                className="w-full border border-gray-300 rounded-md px-3 h-10 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                required
+                onChange={setPin}
+                autoFocus
               />
-              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              {error ? <p className="text-sm text-red-600 text-center">{error}</p> : null}
               <button
                 type="submit"
-                disabled={submitting}
-                className="w-full h-10 bg-black text-white rounded-full hover:bg-blue-600 disabled:opacity-60"
+                disabled={submitting || pin.length < 6}
+                className="w-full h-10 bg-black text-white rounded-full hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {submitting ? "Verifying33" : "Unlock"}
+                {submitting ? "Verifying..." : "Unlock"}
               </button>
             </form>
           </>

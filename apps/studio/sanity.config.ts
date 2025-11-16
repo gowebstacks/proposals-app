@@ -35,6 +35,10 @@ export default defineConfig({
               .title('Companies')
               .schemaType('company')
               .child(S.documentTypeList('company').title('Companies')),
+            S.listItem()
+              .title('Testimonials')
+              .schemaType('testimonial')
+              .child(S.documentTypeList('testimonial').title('Testimonials')),
           ]),
     }),
     visionTool(),
