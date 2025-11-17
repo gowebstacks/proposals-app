@@ -165,6 +165,16 @@ interface SanityVideoModuleNode {
   muted?: boolean
 }
 
+interface SanityReelCarouselNode {
+  _type: 'reelCarousel'
+  title?: string
+  videos: Array<{
+    muxVideoId: string
+    title?: string
+    thumbnail?: SanityImage
+  }>
+}
+
 // Legacy interface for backward compatibility
 interface LegacyPricingTableNode {
   _type: 'pricingTable'
@@ -667,6 +677,116 @@ function VideoModuleComponent({ value }: { value: SanityVideoModuleNode }) {
   )
 }
 
+// Reel Carousel Component
+function ReelCarouselComponent({ value }: { value: SanityReelCarouselNode }) {
+  const videoCount = value.videos?.length || 0
+  const [activeIndex, setActiveIndex] = React.useState(videoCount) // Start at first "real" video in middle set
+  const [isTransitioning, setIsTransitioning] = React.useState(true)
+  
+  // Handle infinite loop wrap-around
+  React.useEffect(() => {
+    if (!videoCount) return
+    
+    if (activeIndex >= videoCount * 2) {
+      // Reached end of second set, jump back to first set
+      setTimeout(() => {
+        setIsTransitioning(false)
+        setActiveIndex(activeIndex - videoCount)
+      }, 500) // Wait for transition to complete
+    } else if (activeIndex < videoCount) {
+      // Reached start of first set, jump forward to second set
+      setTimeout(() => {
+        setIsTransitioning(false)
+        setActiveIndex(activeIndex + videoCount)
+      }, 500)
+    }
+  }, [activeIndex, videoCount])
+
+  // Re-enable transitions after jump
+  React.useEffect(() => {
+    if (!isTransitioning) {
+      setTimeout(() => setIsTransitioning(true), 50)
+    }
+  }, [isTransitioning])
+
+  if (!value.videos || value.videos.length === 0) return null
+
+  // Create infinite array: [...videos, ...videos, ...videos]
+  const infiniteVideos = [...value.videos, ...value.videos, ...value.videos]
+
+  return (
+    <div className="col-span-8 py-6">
+      {value.title && (
+        <h3 className="text-xl font-medium text-gray-900 mb-6">
+          {value.title}
+        </h3>
+      )}
+      <div className="relative h-[650px] flex items-center justify-center overflow-hidden">
+        {/* Horizontal carousel container */}
+        <div 
+          className="flex items-center gap-4"
+          style={{
+            transform: `translateX(calc(50% - 170px - ${activeIndex * (340 + 16)}px))`,
+            transition: isTransitioning ? 'transform 500ms ease-out' : 'none',
+          }}
+        >
+          {infiniteVideos.map((video, index) => {
+            if (!video?.muxVideoId) return null
+            
+            const playbackId = String(video.muxVideoId).trim()
+            const isActive = index === activeIndex
+            
+            // Calculate position relative to active
+            const offset = index - activeIndex
+            
+            const getScale = () => {
+              if (offset === 0) return 1
+              return 0.85
+            }
+            
+            const getZIndex = () => {
+              if (offset === 0) return 20
+              return 10
+            }
+            
+            return (
+              <div
+                key={index}
+                className="flex-shrink-0 transition-all duration-500 ease-out cursor-pointer"
+                style={{
+                  transform: `scale(${getScale()})`,
+                  zIndex: getZIndex(),
+                }}
+                onClick={() => setActiveIndex(index)}
+              >
+                <div className="w-[340px] h-[600px] rounded-3xl overflow-hidden">
+                  <MuxPlayer
+                    playbackId={playbackId}
+                    metadata={{
+                      video_title: video.title || `Reel ${index + 1}`,
+                    }}
+                    streamType="on-demand"
+                    muted={!isActive}
+                    autoPlay={isActive ? 'muted' : false}
+                    style={{
+                      aspectRatio: '9/16',
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '1.5rem',
+                      overflow: 'hidden',
+                    }}
+                    placeholder={video.thumbnail ? urlForImage(video.thumbnail)?.url() : undefined}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Custom InformationFillSmall component
 function InformationFillSmall({ className }: { className?: string }) {
   return (
@@ -1074,6 +1194,11 @@ const components: Partial<PortableTextReactComponents> = {
       console.log('🎥 Rendering video module:', value)
       if (!value) return null
       return <VideoModuleComponent value={value} />
+    },
+    reelCarousel: ({ value }: { value?: SanityReelCarouselNode }) => {
+      console.log('🎬 Rendering reel carousel:', value)
+      if (!value) return null
+      return <ReelCarouselComponent value={value} />
     },
   },
 }

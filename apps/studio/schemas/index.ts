@@ -29,6 +29,7 @@ export const schemaTypes = [
   modules.testimonialCard,
   modules.callout,
   modules.videoModule,
+  modules.reelCarousel,
   
   // Object schemas (reusable objects)
   // objects.exampleObject,

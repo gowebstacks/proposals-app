@@ -92,6 +92,9 @@ const canvas = defineType({
         {
           type: 'videoModule',
         },
+        {
+          type: 'reelCarousel',
+        },
       ],
       description: 'Rich text content for the canvas',
     },

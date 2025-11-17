@@ -113,6 +113,14 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
             title,
             thumbnail
           }
+        },
+        _type == "reelCarousel" => {
+          ...,
+          videos[]->{
+            muxVideoId,
+            title,
+            thumbnail
+          }
         }
       }
     },
