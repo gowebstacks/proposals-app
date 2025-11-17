@@ -86,6 +86,9 @@ const canvas = defineType({
         {
           type: 'testimonialCard',
         },
+        {
+          type: 'callout',
+        },
       ],
       description: 'Rich text content for the canvas',
     },

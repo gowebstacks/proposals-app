@@ -144,6 +144,13 @@ interface SanityTestimonialCardNode {
   }
 }
 
+interface SanityCalloutNode {
+  _type: 'callout'
+  title?: string
+  content: TypedObject[]
+  theme?: 'info' | 'success' | 'warning' | 'error'
+}
+
 // Legacy interface for backward compatibility
 interface LegacyPricingTableNode {
   _type: 'pricingTable'
@@ -532,6 +539,73 @@ function TestimonialCardComponent({ value }: { value: SanityTestimonialCardNode 
   )
 }
 
+// Callout Component
+function CalloutComponent({ value }: { value: SanityCalloutNode }) {
+  const theme = value.theme || 'info'
+  
+  const themeStyles = {
+    info: {
+      border: 'border-blue-600',
+      badge: 'bg-blue-600',
+    },
+    success: {
+      border: 'border-green-600',
+      badge: 'bg-green-600',
+    },
+    warning: {
+      border: 'border-yellow-600',
+      badge: 'bg-yellow-600',
+    },
+    error: {
+      border: 'border-red-600',
+      badge: 'bg-red-600',
+    },
+  }
+  
+  const styles = themeStyles[theme]
+  
+  return (
+    <div className="col-start-2 col-span-6">
+      <div className={cn('rounded-lg border pl-4 pt-6 pb-4 pr-6 relative', styles.border)}>
+        {/* Badge */}
+        {value.title && (
+          <div className="absolute -top-3 left-4 z-20">
+            <span className={cn('px-2 py-1 text-xs font-medium text-white rounded', styles.badge)}>
+              {value.title}
+            </span>
+          </div>
+        )}
+        
+        {/* Content */}
+        <div className="text-base text-gray-800 leading-relaxed font-light">
+          <PortableTextComponent 
+            value={value.content}
+            components={{
+              block: {
+                normal: ({ children }) => <p className="text-base text-gray-800 font-light">{children}</p>,
+              },
+              marks: {
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                em: ({ children }) => <em className="italic">{children}</em>,
+                link: ({ children, value: linkValue }: { children?: React.ReactNode; value?: { href?: string } }) => (
+                  <a 
+                    href={linkValue?.href} 
+                    className="text-blue-600 hover:text-blue-700 underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {children}
+                  </a>
+                ),
+              },
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Custom InformationFillSmall component
 function InformationFillSmall({ className }: { className?: string }) {
   return (
@@ -604,7 +678,7 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
                 <Accordion.Header className="w-full">
                   <Accordion.Trigger className="bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer w-full p-3 text-sm font-medium text-gray-700 border-b border-gray-200 text-left flex items-center justify-between group">
                     <div className="flex items-center gap-2">
-                      <ChevronDown className="w-4 h-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+                      <ChevronDown className="w-4 h-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                       {group.groupName}
                     </div>
                   </Accordion.Trigger>
@@ -929,6 +1003,11 @@ const components: Partial<PortableTextReactComponents> = {
       console.log('💬 Rendering testimonial card:', value)
       if (!value) return null
       return <TestimonialCardComponent value={value} />
+    },
+    callout: ({ value }: { value?: SanityCalloutNode }) => {
+      console.log('📢 Rendering callout:', value)
+      if (!value) return null
+      return <CalloutComponent value={value} />
     },
   },
 }

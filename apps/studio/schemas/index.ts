@@ -26,6 +26,7 @@ export const schemaTypes = [
   modules.pricingTable,
   modules.scopeTable,
   modules.testimonialCard,
+  modules.callout,
   
   // Object schemas (reusable objects)
   // objects.exampleObject,
