@@ -95,6 +95,9 @@ const canvas = defineType({
         {
           type: 'reelCarousel',
         },
+        {
+          type: 'ganttChart',
+        },
       ],
       description: 'Rich text content for the canvas',
     },

@@ -148,6 +148,9 @@ importers:
       framer-motion:
         specifier: ^12.23.24
         version: 12.23.24(@emotion/is-prop-valid@1.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      frappe-gantt:
+        specifier: ^1.0.4
+        version: 1.0.4
       geist:
         specifier: ^1.5.1
         version: 1.5.1(next@16.0.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
@@ -4265,6 +4268,9 @@ packages:
         optional: true
       react-dom:
         optional: true
+
+  frappe-gantt@1.0.4:
+    resolution: {integrity: sha512-N94OP9ZiapaG5nzgCeZdxsKP8HD5aLVlH5sEHxSNZQnNKQ4BOn2l46HUD+KIE0LpYIterP7gIrFfkLNRuK0npQ==}
 
   frimousse@0.2.0:
     resolution: {integrity: sha512-viSrsVQWKR4Q7xzC0lkx3Wu9i1+IHrth0QXn0nlIIJXpltwUnjkGXSTuoW7WHI5aJ4z49WR8E/pyQizFjlNtTA==}
@@ -11649,6 +11655,8 @@ snapshots:
       '@emotion/is-prop-valid': 1.2.2
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
+
+  frappe-gantt@1.0.4: {}
 
   frimousse@0.2.0(react@19.2.0):
     dependencies:

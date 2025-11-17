@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { PortableText as PortableTextComponent, type PortableTextReactComponents } from '@portabletext/react'
 import { cn } from '@/lib/utils'
 import type { TypedObject, PortableTextBlock } from '@portabletext/types'
@@ -9,6 +9,7 @@ import { urlForImage } from '@/lib/sanity'
 import { ChevronLeft, ChevronRight, ChevronDown, Check, AlertCircle } from '@geist-ui/icons'
 import * as Accordion from '@radix-ui/react-accordion'
 import MuxPlayer from '@mux/mux-player-react'
+import Gantt from 'frappe-gantt'
 
 interface PortableTextProps {
   value: TypedObject[]
@@ -173,6 +174,22 @@ interface SanityReelCarouselNode {
     title?: string
     thumbnail?: SanityImage
   }>
+}
+
+interface SanityGanttChartNode {
+  _type: 'ganttChart'
+  title?: string
+  tasks: Array<{
+    name: string
+    startDate: string
+    endDate: string
+    color?: 'blue' | 'green' | 'purple' | 'orange' | 'red' | 'gray'
+    progress?: number
+    dependencies?: string
+  }>
+  viewMode?: 'Quarter Day' | 'Half Day' | 'Day' | 'Week' | 'Month' | 'Year'
+  showWeekends?: boolean
+  showProgress?: boolean
 }
 
 // Legacy interface for backward compatibility
@@ -787,6 +804,165 @@ function ReelCarouselComponent({ value }: { value: SanityReelCarouselNode }) {
   )
 }
 
+// Gantt Chart Component
+function GanttChartComponent({ value }: { value: SanityGanttChartNode }) {
+  const ganttRef = useRef<HTMLDivElement>(null)
+  const ganttInstance = useRef<typeof Gantt | null>(null)
+  const [currentViewMode, setCurrentViewMode] = useState<string>(value.viewMode || 'Day')
+
+  // Load Frappe Gantt CSS dynamically
+  useEffect(() => {
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = 'https://cdn.jsdelivr.net/npm/frappe-gantt@1.0.4/dist/frappe-gantt.min.css'
+    document.head.appendChild(link)
+    
+    return () => {
+      document.head.removeChild(link)
+    }
+  }, [])
+
+  // Initialize Gantt chart once
+  useEffect(() => {
+    if (!ganttRef.current || !value.tasks || value.tasks.length === 0) return
+
+    // Clear the container to prevent double rendering
+    ganttRef.current.innerHTML = ''
+
+    // Color mapping - all tasks use black
+    const colorMap: Record<string, string> = {
+      blue: '#000000',
+      green: '#000000',
+      purple: '#000000',
+      orange: '#000000',
+      red: '#000000',
+      gray: '#000000',
+    }
+
+    // Transform Sanity tasks to Frappe Gantt format
+    const tasks = value.tasks.map((task, index) => ({
+      id: `task-${index}`,
+      name: task.name,
+      start: task.startDate,
+      end: task.endDate,
+      progress: task.progress || 0,
+      dependencies: task.dependencies || '',
+      custom_class: task.color || 'blue',
+    }))
+
+    // Create new Gantt instance
+    try {
+      ganttInstance.current = new Gantt(ganttRef.current, tasks, {
+        view_mode: currentViewMode,
+        bar_height: 64,
+        bar_corner_radius: 3,
+        arrow_curve: 5,
+        padding: 18,
+        view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month', 'Year'],
+        date_format: 'YYYY-MM-DD',
+        infinite_padding: false,
+        readonly: true,
+        custom_popup_html: function(task: { name: string; _start: Date; _end: Date; progress: number }) {
+          const progress = task.progress || 0
+          return `
+            <div class="gantt-popup">
+              <div class="font-medium text-sm mb-1">${task.name}</div>
+              <div class="text-xs text-gray-600">
+                ${task._start.toLocaleDateString()} - ${task._end.toLocaleDateString()}
+              </div>
+              ${value.showProgress !== false ? `<div class="text-xs text-gray-600 mt-1">Progress: ${progress}%</div>` : ''}
+            </div>
+          `
+        },
+        on_click: function(task: { id: string; name: string }) {
+          console.log('Task clicked:', task)
+        },
+      })
+
+      // Apply custom colors
+      value.tasks.forEach((task, index) => {
+        if (task.color && ganttRef.current) {
+          const bar = ganttRef.current.querySelector(`[data-id="task-${index}"] .bar`)
+          if (bar) {
+            (bar as HTMLElement).style.fill = colorMap[task.color]
+          }
+        }
+      })
+    } catch (error) {
+      console.error('Error creating Gantt chart:', error)
+    }
+
+    return () => {
+      if (ganttRef.current) {
+        ganttRef.current.innerHTML = ''
+      }
+      ganttInstance.current = null
+    }
+  }, [value])
+
+  // Change view mode when currentViewMode changes
+  useEffect(() => {
+    if (ganttInstance.current && (ganttInstance.current as any).change_view_mode) {
+      (ganttInstance.current as any).change_view_mode(currentViewMode)
+    }
+  }, [currentViewMode])
+
+  const changeViewMode = (mode: string) => {
+    setCurrentViewMode(mode)
+  }
+
+  if (!value.tasks || value.tasks.length === 0) return null
+
+  const viewModes = ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month', 'Year']
+
+  return (
+    <div className="col-span-8 py-6">
+      {value.title && (
+        <h3 className="text-xl font-medium text-gray-900 mb-6">
+          {value.title}
+        </h3>
+      )}
+      
+      {/* View Mode Switcher */}
+      <div className="flex gap-2 mb-4">
+        {viewModes.map((mode) => (
+          <button
+            key={mode}
+            onClick={() => changeViewMode(mode)}
+            className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+              currentViewMode === mode
+                ? 'bg-black text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {mode}
+          </button>
+        ))}
+      </div>
+
+      <div className="gantt-container bg-white rounded-lg border border-gray-200 p-4 overflow-x-auto">
+        <div ref={ganttRef}></div>
+      </div>
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        .gantt .bar {
+          fill: #000000 !important;
+          stroke: #000000 !important;
+          stroke-width: 0 !important;
+        }
+        
+        .gantt .bar-progress {
+          fill: #333333 !important;
+        }
+        
+        .gantt .bar-label {
+          fill: #ffffff !important;
+        }
+      `}} />
+    </div>
+  )
+}
+
 // Custom InformationFillSmall component
 function InformationFillSmall({ className }: { className?: string }) {
   return (
@@ -1199,6 +1375,11 @@ const components: Partial<PortableTextReactComponents> = {
       console.log('🎬 Rendering reel carousel:', value)
       if (!value) return null
       return <ReelCarouselComponent value={value} />
+    },
+    ganttChart: ({ value }: { value?: SanityGanttChartNode }) => {
+      console.log('📊 Rendering Gantt chart:', value)
+      if (!value) return null
+      return <GanttChartComponent value={value} />
     },
   },
 }

@@ -30,6 +30,7 @@ export const schemaTypes = [
   modules.callout,
   modules.videoModule,
   modules.reelCarousel,
+  modules.ganttChart,
   
   // Object schemas (reusable objects)
   // objects.exampleObject,
