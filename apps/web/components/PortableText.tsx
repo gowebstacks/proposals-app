@@ -864,11 +864,17 @@ function GanttChartComponent({ value }: { value: SanityGanttChartNode }) {
         readonly: true,
         custom_popup_html: function(task: { name: string; _start: Date; _end: Date; progress: number }) {
           const progress = task.progress || 0
+          const startDate = task._start && typeof task._start.toLocaleDateString === 'function' 
+            ? task._start.toLocaleDateString() 
+            : ''
+          const endDate = task._end && typeof task._end.toLocaleDateString === 'function'
+            ? task._end.toLocaleDateString()
+            : ''
           return `
             <div class="gantt-popup">
               <div class="font-medium text-sm mb-1">${task.name}</div>
               <div class="text-xs text-gray-600">
-                ${task._start.toLocaleDateString()} - ${task._end.toLocaleDateString()}
+                ${startDate} - ${endDate}
               </div>
               ${value.showProgress !== false ? `<div class="text-xs text-gray-600 mt-1">Progress: ${progress}%</div>` : ''}
             </div>
@@ -893,16 +899,19 @@ function GanttChartComponent({ value }: { value: SanityGanttChartNode }) {
     }
 
     return () => {
-      if (ganttRef.current) {
-        ganttRef.current.innerHTML = ''
+      const container = ganttRef.current
+      if (container) {
+        container.innerHTML = ''
       }
       ganttInstance.current = null
     }
-  }, [value])
+  }, [value, currentViewMode])
 
   // Change view mode when currentViewMode changes
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (ganttInstance.current && (ganttInstance.current as any).change_view_mode) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (ganttInstance.current as any).change_view_mode(currentViewMode)
     }
   }, [currentViewMode])
