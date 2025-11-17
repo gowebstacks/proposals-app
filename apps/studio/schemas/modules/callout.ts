@@ -84,15 +84,16 @@ export const callout = {
         }
       }
       
-      const variantEmoji = {
+      const variantEmoji: Record<string, string> = {
         info: 'ℹ️',
         success: '✅',
         warning: '⚠️',
         error: '❌',
-      }[theme] || 'ℹ️'
+      }
+      const emoji = variantEmoji[theme] || 'ℹ️'
       
       return {
-        title: `${variantEmoji} ${title || 'Callout'}`,
+        title: `${emoji} ${title || 'Callout'}`,
         subtitle: contentPreview,
       }
     },

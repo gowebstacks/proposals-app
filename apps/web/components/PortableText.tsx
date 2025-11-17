@@ -889,8 +889,9 @@ function GanttChartComponent({ value }: { value: SanityGanttChartNode }) {
       value.tasks.forEach((task, index) => {
         if (task.color && ganttRef.current) {
           const bar = ganttRef.current.querySelector(`[data-id="task-${index}"] .bar`)
-          if (bar) {
-            (bar as HTMLElement).style.fill = colorMap[task.color]
+          const color = colorMap[task.color]
+          if (bar && color) {
+            (bar as HTMLElement).style.fill = color
           }
         }
       })
