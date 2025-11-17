@@ -16,6 +16,7 @@
     "@liveblocks/node": "^3.10.1",
     "@liveblocks/react": "^3.10.1",
     "@liveblocks/react-ui": "^3.10.1",
+    "@mux/mux-player-react": "^3.8.0",
     "@portabletext/react": "^5.0.0",
     "@portabletext/types": "^3.0.0",
     "@radix-ui/react-accordion": "^1.2.12",

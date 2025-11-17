@@ -89,6 +89,9 @@ const canvas = defineType({
         {
           type: 'callout',
         },
+        {
+          type: 'videoModule',
+        },
       ],
       description: 'Rich text content for the canvas',
     },

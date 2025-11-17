@@ -105,6 +105,14 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
               }
             }
           }
+        },
+        _type == "videoModule" => {
+          ...,
+          video->{
+            muxVideoId,
+            title,
+            thumbnail
+          }
         }
       }
     },

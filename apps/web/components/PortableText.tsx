@@ -8,6 +8,7 @@ import Image from 'next/image'
 import { urlForImage } from '@/lib/sanity'
 import { ChevronLeft, ChevronRight, ChevronDown, Check, AlertCircle } from '@geist-ui/icons'
 import * as Accordion from '@radix-ui/react-accordion'
+import MuxPlayer from '@mux/mux-player-react'
 
 interface PortableTextProps {
   value: TypedObject[]
@@ -149,6 +150,19 @@ interface SanityCalloutNode {
   title?: string
   content: TypedObject[]
   theme?: 'info' | 'success' | 'warning' | 'error'
+}
+
+interface SanityVideoModuleNode {
+  _type: 'videoModule'
+  video: {
+    muxVideoId: string
+    title?: string
+    thumbnail?: SanityImage
+  }
+  caption?: string
+  autoplay?: boolean
+  loop?: boolean
+  muted?: boolean
 }
 
 // Legacy interface for backward compatibility
@@ -606,6 +620,53 @@ function CalloutComponent({ value }: { value: SanityCalloutNode }) {
   )
 }
 
+// Video Module Component
+function VideoModuleComponent({ value }: { value: SanityVideoModuleNode }) {
+  console.log('🎥 VideoModuleComponent received:', JSON.stringify(value, null, 2))
+  
+  if (!value.video?.muxVideoId) {
+    console.log('❌ No muxVideoId found. Video object:', value.video)
+    return null
+  }
+
+  const { video, caption, autoplay, loop, muted } = value
+  const playbackId = String(video.muxVideoId).trim()
+  
+  console.log('✅ Rendering video with ID:', playbackId)
+
+  return (
+    <div className="col-span-8 py-6">
+      <div className="rounded-lg overflow-hidden">
+        <MuxPlayer
+          playbackId={playbackId}
+          metadata={{
+            video_title: video.title || 'Video',
+          }}
+          streamType="on-demand"
+          autoPlay={autoplay ? 'muted' : false}
+          loop={loop}
+          muted={muted}
+          style={{
+            aspectRatio: '16/9',
+            width: '100%',
+            borderRadius: '0.5rem',
+            overflow: 'hidden',
+          }}
+          placeholder={video.thumbnail ? urlForImage(video.thumbnail)?.url() : undefined}
+          onError={(error) => {
+            console.error('❌ MuxPlayer error:', error)
+          }}
+        />
+      </div>
+      {caption && (
+        <p className="text-sm text-gray-600 mt-3 text-center font-light">
+          {caption}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // Custom InformationFillSmall component
 function InformationFillSmall({ className }: { className?: string }) {
   return (
@@ -1008,6 +1069,11 @@ const components: Partial<PortableTextReactComponents> = {
       console.log('📢 Rendering callout:', value)
       if (!value) return null
       return <CalloutComponent value={value} />
+    },
+    videoModule: ({ value }: { value?: SanityVideoModuleNode }) => {
+      console.log('🎥 Rendering video module:', value)
+      if (!value) return null
+      return <VideoModuleComponent value={value} />
     },
   },
 }
