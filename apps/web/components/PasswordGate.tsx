@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { identifyUser, trackEvent } from "@/utils/segment"
 import PinInput from "./PinInput"
@@ -15,25 +15,38 @@ export default function PasswordGate({ slug }: Props) {
   const [error, setError] = useState("")
   const router = useRouter()
 
+  // Track when gate is viewed
+  useEffect(() => {
+    try {
+      trackEvent("Proposal Gate Viewed", {
+        proposalSlug: slug,
+      })
+    } catch (err) {
+      console.warn("Segment tracking failed", err)
+    }
+  }, [slug])
+
   const onSubmitEmail = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
     if (!email) return
 
-    try {
-      // Log email with Segment as soon as it's provided
-      identifyUser(email, {
-        source: "proposal_pin_gate",
-        proposalSlug: slug,
-      })
+    // Extract domain from email for company grouping
+    const domain = email.split('@')[1]?.toLowerCase()
 
-      trackEvent("Proposal Email Submitted", {
-        proposalSlug: slug,
-      })
+    // Identify user and associate with company group
+    try {
+      identifyUser(email)
+      
+      // Group user by their company domain
+      if (domain && window.analytics) {
+        window.analytics.group(domain, {
+          domain: domain,
+        })
+      }
     } catch (err) {
-      // Fail silently for analytics issues
-      console.warn("Segment tracking failed for proposal email", err)
+      console.warn("Segment identify/group failed", err)
     }
 
     setStep(2)
@@ -43,6 +56,16 @@ export default function PasswordGate({ slug }: Props) {
     e.preventDefault()
     setSubmitting(true)
     setError("")
+
+    // Track access attempt
+    try {
+      trackEvent("Proposal Access Attempted", {
+        proposalSlug: slug,
+      })
+    } catch (err) {
+      console.warn("Segment tracking failed", err)
+    }
+
     try {
       const res = await fetch("/api/proposals/auth", {
         method: "POST",
@@ -52,8 +75,30 @@ export default function PasswordGate({ slug }: Props) {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data?.message || "Invalid PIN")
+        const errorMessage = data?.message || "Invalid PIN"
+        
+        // Track failed access
+        try {
+          trackEvent("Proposal Access Failed", {
+            proposalSlug: slug,
+            error: errorMessage,
+          })
+        } catch (err) {
+          console.warn("Segment tracking failed", err)
+        }
+        
+        throw new Error(errorMessage)
       }
+
+      // Track successful access
+      try {
+        trackEvent("Proposal Access Granted", {
+          proposalSlug: slug,
+        })
+      } catch (err) {
+        console.warn("Segment tracking failed", err)
+      }
+
       router.refresh()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Invalid PIN"

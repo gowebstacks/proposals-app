@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, Check, AlertCircle } from '@gei
 import * as Accordion from '@radix-ui/react-accordion'
 import MuxPlayer from '@mux/mux-player-react'
 import Gantt from 'frappe-gantt'
+import { trackEvent } from '@/utils/segment'
 
 interface PortableTextProps {
   value: TypedObject[]
@@ -274,6 +275,22 @@ function GalleryComponent({ value }: { value: SanityGalleryNode }) {
 function AccordionComponent({ value }: { value: SanityAccordionNode }) {
   if (!value.items || value.items.length === 0) return null
   
+  const handleAccordionChange = (openValues: string[]) => {
+    // Track when accordion items are opened
+    value.items.forEach((item) => {
+      if (openValues.includes(item._key)) {
+        try {
+          trackEvent("Accordion Opened", {
+            accordionTitle: value.title || 'Untitled',
+            question: item.question,
+          })
+        } catch (err) {
+          console.warn("Segment tracking failed", err)
+        }
+      }
+    })
+  }
+  
   return (
     <div className="col-span-8">
       {value.title && (
@@ -283,7 +300,11 @@ function AccordionComponent({ value }: { value: SanityAccordionNode }) {
       )}
       
       <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <Accordion.Root type="multiple" className="w-full">
+        <Accordion.Root 
+          type="multiple" 
+          className="w-full"
+          onValueChange={handleAccordionChange}
+        >
           {value.items.map((item) => (
             <Accordion.Item
               key={item._key}
@@ -1000,6 +1021,51 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
     value.scopeGroups?.[0]?.groupName ? [value.scopeGroups[0].groupName] : []
   )
 
+  const handleTooltipHover = (itemName: string, tooltipText: string) => {
+    try {
+      trackEvent("Tooltip Viewed", {
+        itemName,
+        tooltipText,
+      })
+    } catch (err) {
+      console.warn("Segment tracking failed", err)
+    }
+  }
+
+  const handleScopeGroupChange = (newOpenItems: string[]) => {
+    // Track which groups were opened or closed
+    const previouslyOpen = new Set(openItems)
+    const nowOpen = new Set(newOpenItems)
+    
+    // Find newly opened groups
+    newOpenItems.forEach((groupName) => {
+      if (!previouslyOpen.has(groupName)) {
+        try {
+          trackEvent("Scope Group Opened", {
+            groupName,
+          })
+        } catch (err) {
+          console.warn("Segment tracking failed", err)
+        }
+      }
+    })
+    
+    // Find newly closed groups
+    openItems.forEach((groupName) => {
+      if (!nowOpen.has(groupName)) {
+        try {
+          trackEvent("Scope Group Closed", {
+            groupName,
+          })
+        } catch (err) {
+          console.warn("Segment tracking failed", err)
+        }
+      }
+    })
+    
+    setOpenItems(newOpenItems)
+  }
+
   if (!value.scopeGroups || value.scopeGroups.length === 0) return null
 
   return (
@@ -1033,7 +1099,7 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
           type="multiple"
           className="w-full"
           value={openItems}
-          onValueChange={setOpenItems}
+          onValueChange={handleScopeGroupChange}
         >
           {value.scopeGroups.map((group) => {
             return (
@@ -1082,7 +1148,10 @@ function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
                                 <div className="flex items-center gap-2">
                                   <div className="[font-size:14px] text-gray-900">{scopeItem.item}</div>
                                   {scopeItem.tooltip && (
-                                    <div className="group relative">
+                                    <div 
+                                      className="group relative"
+                                      onMouseEnter={() => handleTooltipHover(scopeItem.item, scopeItem.tooltip!)}
+                                    >
                                       <InformationFillSmall className="w-4 h-4 text-gray-300 flex-shrink-0" />
                                       {/* Tooltip */}
                                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50">

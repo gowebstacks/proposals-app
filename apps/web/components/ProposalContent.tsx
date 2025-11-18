@@ -14,6 +14,7 @@ import { RoomProvider } from '@/lib/liveblocks'
 import { cn } from '@/lib/utils'
 import Logo from '@/components/Logo'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { trackEvent } from '@/utils/segment'
 
 // Dynamic import to avoid SSR issues with Liveblocks (temporarily disabled)
 // const LiveblocksCopilot = dynamic(() => import('@/components/LiveblocksCopilot'), {
@@ -112,6 +113,34 @@ export default function ProposalContent({
   const [copied, setCopied] = useState(false)
   const router = useRouter()
 
+  // Track proposal viewed on mount
+  useEffect(() => {
+    try {
+      trackEvent("Proposal Viewed", {
+        proposalSlug,
+        tabTitle: tabs[activeTabIndex]?.title || 'Untitled',
+        tabIndex: activeTabIndex,
+      })
+    } catch (err) {
+      console.warn("Segment tracking failed", err)
+    }
+  }, [proposalSlug, tabs, activeTabIndex]) // Only track once on mount
+
+  // Track tab changes
+  useEffect(() => {
+    if (activeTabIndex > 0) { // Skip initial load (already tracked above)
+      try {
+        trackEvent("Proposal Tab Changed", {
+          proposalSlug,
+          tabTitle: tabs[activeTabIndex]?.title || 'Untitled',
+          tabIndex: activeTabIndex,
+        })
+      } catch (err) {
+        console.warn("Segment tracking failed", err)
+      }
+    }
+  }, [activeTabIndex, proposalSlug, tabs])
+
   // Generate tab slug from title
   const generateTabSlug = (title: string) => {
     return title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
@@ -189,6 +218,21 @@ export default function ProposalContent({
         block: 'start',
         inline: 'nearest'
       })
+      
+      // Track heading navigation
+      const heading = outline[activeTabIndex]?.headings.find(h => h.id === headingId)
+      if (heading) {
+        try {
+          trackEvent("Proposal Heading Clicked", {
+            proposalSlug,
+            headingText: heading.text,
+            headingLevel: heading.level,
+            tabIndex: activeTabIndex,
+          })
+        } catch (err) {
+          console.warn("Segment tracking failed", err)
+        }
+      }
     }
   }
 
@@ -199,6 +243,12 @@ export default function ProposalContent({
       await navigator.clipboard.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+      
+      // Track share action
+      trackEvent("Proposal Shared", {
+        proposalSlug,
+        method: 'copy_link',
+      })
     } catch (err) {
       console.error('Failed to copy:', err)
     }
@@ -302,6 +352,15 @@ export default function ProposalContent({
                 href={calendarLink}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => {
+                  try {
+                    trackEvent("Proposal Calendar Clicked", {
+                      proposalSlug,
+                    })
+                  } catch (err) {
+                    console.warn("Segment tracking failed", err)
+                  }
+                }}
                 className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-black rounded-full hover:bg-blue-600 transition-colors"
               >
                 Schedule a call
@@ -526,6 +585,15 @@ export default function ProposalContent({
                   href={googleDocUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => {
+                    try {
+                      trackEvent("Proposal Google Doc Opened", {
+                        proposalSlug,
+                      })
+                    } catch (err) {
+                      console.warn("Segment tracking failed", err)
+                    }
+                  }}
                   className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium text-black bg-white rounded-md hover:bg-gray-100 transition-colors duration-200"
                 >
                   <Image 
