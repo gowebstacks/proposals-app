@@ -149,10 +149,10 @@ export default function ProposalContent({
     const tab = tabs[tabIndex]
     if (tab?.title) {
       const tabSlug = generateTabSlug(tab.title)
-      router.push(`/${proposalSlug}/${tabSlug}`)
+      router.push(`/proposals/${proposalSlug}/${tabSlug}`)
     } else if (tabIndex === 0) {
       // Fallback for first tab without title
-      router.push(`/${proposalSlug}`)
+      router.push(`/proposals/${proposalSlug}`)
     }
   }
 
