@@ -18,9 +18,7 @@ export default function PasswordGate({ slug }: Props) {
   // Track when gate is viewed
   useEffect(() => {
     try {
-      trackEvent("Proposal Gate Viewed", {
-        proposalSlug: slug,
-      })
+      trackEvent("Proposal Gate Viewed")
     } catch (err) {
       console.warn("Segment tracking failed", err)
     }
@@ -59,9 +57,7 @@ export default function PasswordGate({ slug }: Props) {
 
     // Track access attempt
     try {
-      trackEvent("Proposal Access Attempted", {
-        proposalSlug: slug,
-      })
+      trackEvent("Proposal Access Attempted")
     } catch (err) {
       console.warn("Segment tracking failed", err)
     }
@@ -80,7 +76,6 @@ export default function PasswordGate({ slug }: Props) {
         // Track failed access
         try {
           trackEvent("Proposal Access Failed", {
-            proposalSlug: slug,
             error: errorMessage,
           })
         } catch (err) {
@@ -92,9 +87,7 @@ export default function PasswordGate({ slug }: Props) {
 
       // Track successful access
       try {
-        trackEvent("Proposal Access Granted", {
-          proposalSlug: slug,
-        })
+        trackEvent("Proposal Access Granted")
       } catch (err) {
         console.warn("Segment tracking failed", err)
       }

@@ -117,7 +117,6 @@ export default function ProposalContent({
   useEffect(() => {
     try {
       trackEvent("Proposal Viewed", {
-        proposalSlug,
         tabTitle: tabs[activeTabIndex]?.title || 'Untitled',
         tabIndex: activeTabIndex,
       })
@@ -131,7 +130,6 @@ export default function ProposalContent({
     if (activeTabIndex > 0) { // Skip initial load (already tracked above)
       try {
         trackEvent("Proposal Tab Changed", {
-          proposalSlug,
           tabTitle: tabs[activeTabIndex]?.title || 'Untitled',
           tabIndex: activeTabIndex,
         })
@@ -224,7 +222,6 @@ export default function ProposalContent({
       if (heading) {
         try {
           trackEvent("Proposal Heading Clicked", {
-            proposalSlug,
             headingText: heading.text,
             headingLevel: heading.level,
             tabIndex: activeTabIndex,
@@ -246,7 +243,6 @@ export default function ProposalContent({
       
       // Track share action
       trackEvent("Proposal Shared", {
-        proposalSlug,
         method: 'copy_link',
       })
     } catch (err) {
@@ -354,9 +350,7 @@ export default function ProposalContent({
                 rel="noopener noreferrer"
                 onClick={() => {
                   try {
-                    trackEvent("Proposal Calendar Clicked", {
-                      proposalSlug,
-                    })
+                    trackEvent("Proposal Calendar Clicked")
                   } catch (err) {
                     console.warn("Segment tracking failed", err)
                   }
@@ -587,9 +581,7 @@ export default function ProposalContent({
                   rel="noopener noreferrer"
                   onClick={() => {
                     try {
-                      trackEvent("Proposal Google Doc Opened", {
-                        proposalSlug,
-                      })
+                      trackEvent("Proposal Google Doc Opened")
                     } catch (err) {
                       console.warn("Segment tracking failed", err)
                     }
