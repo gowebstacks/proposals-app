@@ -1,9 +1,10 @@
-import TableCellEditor from '../../components/TableCellEditor'
+import { DocumentIcon } from '@sanity/icons'
 
 export const table = {
   name: 'table',
   title: 'Table',
   type: 'object',
+  icon: DocumentIcon,
   fields: [
     {
       name: 'title',

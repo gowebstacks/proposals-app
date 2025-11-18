@@ -86,7 +86,44 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
   const proposal = await client.fetch(groq`*[_type == "proposal" && seo.slug.current == $slug][0]{
     _id,
     title,
-    tabs,
+    tabs[]{
+      ...,
+      content[]{
+        ...,
+        _type == "testimonialCard" => {
+          ...,
+          testimonial->{
+            title,
+            content,
+            person->{
+              firstName,
+              lastName,
+              role,
+              headshot,
+              company->{
+                name
+              }
+            }
+          }
+        },
+        _type == "videoModule" => {
+          ...,
+          video->{
+            muxVideoId,
+            title,
+            thumbnail
+          }
+        },
+        _type == "reelCarousel" => {
+          ...,
+          videos[]->{
+            muxVideoId,
+            title,
+            thumbnail
+          }
+        }
+      }
+    },
     googleDoc,
     calendarLink,
     passwords,

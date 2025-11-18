@@ -10,6 +10,8 @@ export const schemaTypes = [
   documents.proposal,
   documents.company,
   documents.person,
+  documents.testimonial,
+  documents.video,
   
   // Field schemas (reusable components)
   fields.seo,
@@ -22,6 +24,13 @@ export const schemaTypes = [
   modules.table,
   modules.gallery,
   modules.accordion,
+  modules.pricingTable,
+  modules.scopeTable,
+  modules.testimonialCard,
+  modules.callout,
+  modules.videoModule,
+  modules.reelCarousel,
+  modules.ganttChart,
   
   // Object schemas (reusable objects)
   // objects.exampleObject,

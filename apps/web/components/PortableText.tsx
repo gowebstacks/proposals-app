@@ -1,13 +1,16 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { PortableText as PortableTextComponent, type PortableTextReactComponents } from '@portabletext/react'
 import { cn } from '@/lib/utils'
 import type { TypedObject, PortableTextBlock } from '@portabletext/types'
 import Image from 'next/image'
 import { urlForImage } from '@/lib/sanity'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Check, AlertCircle } from '@geist-ui/icons'
 import * as Accordion from '@radix-ui/react-accordion'
+import MuxPlayer from '@mux/mux-player-react'
+import Gantt from 'frappe-gantt'
+import { trackEvent } from '@/utils/segment'
 
 interface PortableTextProps {
   value: TypedObject[]
@@ -72,6 +75,131 @@ interface SanityAccordionNode {
   title?: string
   items: SanityAccordionItem[]
 }
+
+interface SanityPricingOption {
+  _key: string
+  name: string
+  description?: string
+  price?: {
+    type?: 'single' | 'range' | 'starting_from' | 'custom'
+    amount?: number
+    maxAmount?: number
+    customText?: string
+    currency?: string
+    period?: string
+    customPeriod?: string
+  }
+  badge?: { text?: string }
+  highlights?: Array<{
+    text: string
+    icon: 'check' | 'lightning' | 'rocket' | 'chart' | 'lock' | 'star'
+  }>
+}
+
+interface SanityPricingTableNode {
+  _type: 'pricingTable'
+  options: SanityPricingOption[]
+}
+
+interface SanityScopeTableNode {
+  _type: 'scopeTable'
+  options: string[]
+  scopeGroups?: Array<{
+    groupName: string
+    items: Array<{
+      item: string
+      description?: string
+      tooltip?: string
+      optionAvailability: Array<{
+        optionIndex: number
+        included: 'included' | 'limited' | 'not_included' | 'custom'
+        customText?: string
+      }>
+    }>
+  }>
+  scopeItems?: Array<{
+    group?: string
+    item: string
+    description?: string
+    tooltip?: string
+    optionAvailability: Array<{
+      optionIndex: number
+      included: 'included' | 'limited' | 'not_included' | 'custom'
+      customText?: string
+    }>
+  }>
+}
+
+interface SanityTestimonialCardNode {
+  _type: 'testimonialCard'
+  testimonial: {
+    title?: string
+    content: TypedObject[]
+    person: {
+      firstName?: string
+      lastName?: string
+      role?: string
+      headshot?: SanityImage
+      company?: {
+        name?: string
+      }
+    }
+  }
+}
+
+interface SanityCalloutNode {
+  _type: 'callout'
+  title?: string
+  content: TypedObject[]
+  theme?: 'info' | 'success' | 'warning' | 'error'
+}
+
+interface SanityVideoModuleNode {
+  _type: 'videoModule'
+  video: {
+    muxVideoId: string
+    title?: string
+    thumbnail?: SanityImage
+  }
+  caption?: string
+  autoplay?: boolean
+  loop?: boolean
+  muted?: boolean
+}
+
+interface SanityReelCarouselNode {
+  _type: 'reelCarousel'
+  title?: string
+  videos: Array<{
+    muxVideoId: string
+    title?: string
+    thumbnail?: SanityImage
+  }>
+}
+
+interface SanityGanttChartNode {
+  _type: 'ganttChart'
+  title?: string
+  tasks: Array<{
+    name: string
+    startDate: string
+    endDate: string
+    color?: 'blue' | 'green' | 'purple' | 'orange' | 'red' | 'gray'
+    progress?: number
+    dependencies?: string
+  }>
+  viewMode?: 'Quarter Day' | 'Half Day' | 'Day' | 'Week' | 'Month' | 'Year'
+  showWeekends?: boolean
+  showProgress?: boolean
+}
+
+// Legacy interface for backward compatibility
+interface LegacyPricingTableNode {
+  _type: 'pricingTable'
+  plans: SanityPricingOption[]
+}
+
+type PricingTableNode = SanityPricingTableNode | LegacyPricingTableNode
 
 // Gallery Component
 function GalleryComponent({ value }: { value: SanityGalleryNode }) {
@@ -147,6 +275,22 @@ function GalleryComponent({ value }: { value: SanityGalleryNode }) {
 function AccordionComponent({ value }: { value: SanityAccordionNode }) {
   if (!value.items || value.items.length === 0) return null
   
+  const handleAccordionChange = (openValues: string[]) => {
+    // Track when accordion items are opened
+    value.items.forEach((item) => {
+      if (openValues.includes(item._key)) {
+        try {
+          trackEvent("Accordion Opened", {
+            accordionTitle: value.title || 'Untitled',
+            question: item.question,
+          })
+        } catch (err) {
+          console.warn("Segment tracking failed", err)
+        }
+      }
+    })
+  }
+  
   return (
     <div className="col-span-8">
       {value.title && (
@@ -156,7 +300,11 @@ function AccordionComponent({ value }: { value: SanityAccordionNode }) {
       )}
       
       <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <Accordion.Root type="multiple" className="w-full">
+        <Accordion.Root 
+          type="multiple" 
+          className="w-full"
+          onValueChange={handleAccordionChange}
+        >
           {value.items.map((item) => (
             <Accordion.Item
               key={item._key}
@@ -207,10 +355,873 @@ function AccordionComponent({ value }: { value: SanityAccordionNode }) {
   )
 }
 
+// Pricing Table Component
+function PricingTableComponent({ value }: { value: PricingTableNode }) {
+  // Handle both old 'plans' and new 'options' field names for backward compatibility
+  const options = 'options' in value ? value.options : value.plans
+  if (!options || options.length === 0) return null
+
+  
+  const getCurrencySymbol = (currency?: string) => {
+    switch (currency) {
+      case 'EUR': return '€'
+      case 'GBP': return '£'
+      case 'USD':
+      default: return '$'
+    }
+  }
+
+  const formatCurrency = (amount?: number, currency?: string) => {
+    if (amount === undefined || amount === null) return ''
+    
+    const symbol = getCurrencySymbol(currency)
+    const formatted = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+    
+    return `${symbol}${formatted}`
+  }
+
+  return (
+    <div className="col-span-8">
+      <div className="grid gap-0 border border-gray-200 rounded-lg mt-6 grid-cols-1 md:grid-cols-3">
+        {options.map((option: SanityPricingOption, index: number) => (
+          <div
+            key={option._key}
+            className={cn(
+              "relative p-7",
+              index > 0 && "border-l border-gray-200",
+              index === 0 && "rounded-l-lg",
+              index === options.length - 1 && "rounded-r-lg",
+              index === 1 ? "bg-white" : "bg-gray-50"
+            )}
+          >
+            {/* Badge */}
+            {option.badge?.text && (
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-20">
+                <span className="px-2 py-1 text-xs font-medium text-white bg-black rounded">
+                  {option.badge.text}
+                </span>
+              </div>
+            )}
+
+            {/* Option Header */}
+            <div className="mb-8">
+              <h3 className="text-base font-medium text-gray-900 mb-3">
+                {option.name}
+              </h3>
+              
+              {option.description && (
+                <p className="text-base text-gray-600 mb-6">
+                  {option.description}
+                </p>
+              )}
+
+              {/* Price */}
+              {option.price && (
+                <div className="mb-6">
+                  {option.price.type === 'custom' ? (
+                    <div className="text-base font-medium text-gray-900">
+                      {option.price.customText}
+                    </div>
+                  ) : option.price.type === 'range' ? (
+                    <div>
+                      <span className="text-base font-medium text-gray-900">
+                        {formatCurrency(option.price.amount, option.price.currency)}
+                      </span>
+                      <span className="text-base text-gray-700 mx-1">-</span>
+                      <span className="text-base font-medium text-gray-900">
+                        {formatCurrency(option.price.maxAmount, option.price.currency)}
+                      </span>
+                      {option.price.period !== 'once' && (
+                        <span className="text-base text-gray-600 ml-1">
+                          /{option.price.period === 'custom' ? option.price.customPeriod : option.price.period}
+                        </span>
+                      )}
+                    </div>
+                  ) : option.price.type === 'starting_from' ? (
+                    <div>
+                      <span className="text-base text-gray-600">Starting from </span>
+                      <span className="text-base font-medium text-gray-900">
+                        {formatCurrency(option.price.amount, option.price.currency)}
+                      </span>
+                      {option.price.period !== 'once' && (
+                        <span className="text-base text-gray-600 ml-1">
+                          /{option.price.period === 'custom' ? option.price.customPeriod : option.price.period}
+                        </span>
+                      )}
+                    </div>
+                  ) : option.price.amount === 0 ? (
+                    <div className="text-base font-medium text-gray-900">
+                      Free forever.
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-base font-medium text-gray-900">
+                        {formatCurrency(option.price.amount, option.price.currency)}
+                      </span>
+                      {option.price.period !== 'once' && (
+                        <span className="text-base text-gray-600 ml-1">
+                          /{option.price.period === 'custom' ? option.price.customPeriod : option.price.period}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Highlights */}
+            {option.highlights && option.highlights.length > 0 && (
+              <div>
+                <ul className="space-y-3">
+                  {option.highlights.map((highlight: { text: string; icon?: string }, index: number) => (
+                    <li key={index} className="flex items-center">
+                      {highlight.icon && (
+                        <span className="mr-3">
+                          <Check className="w-4 h-4 text-gray-600" />
+                        </span>
+                      )}
+                      <span className="text-sm text-gray-500">
+                        {highlight.text}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+    </div>
+  )
+}
+
+// Scope Table Component
+function ScopeTableComponent({ value }: { value: SanityScopeTableNode }) {
+  console.log('🔍 ScopeTableComponent received value:', JSON.stringify(value, null, 2))
+
+  // Handle both old and new schema structures for backward compatibility
+  if (value.scopeItems && (!value.scopeGroups || value.scopeGroups.length === 0)) {
+    // Old schema structure - convert to new grouped format
+    const groupedItems = value.scopeItems.reduce(
+      (acc: Record<string, typeof value.scopeItems>, item) => {
+        if (!item) return acc // Skip undefined items
+        const group = item.group || 'Ungrouped'
+        if (!acc[group]) acc[group] = []
+
+        const convertedItem = {
+          item: item.item || 'Unnamed Item',
+          description: item.description,
+          tooltip: item.tooltip,
+          optionAvailability: item.optionAvailability || [],
+        }
+
+        acc[group]!.push(convertedItem as {
+          item: string
+          description?: string
+          tooltip?: string
+          optionAvailability: Array<{
+            optionIndex: number
+            included: 'included' | 'limited' | 'not_included' | 'custom'
+            customText?: string
+          }>
+        })
+        return acc
+      },
+      {} as Record<string, typeof value.scopeItems>
+    )
+
+    const convertedGroups = Object.entries(groupedItems).map(([groupName, items]) => ({
+      groupName,
+      items,
+    }))
+
+    return <ScopeTableComponentGroups value={{ ...value, scopeGroups: convertedGroups }} />
+  }
+
+  if (!value.scopeGroups || value.scopeGroups.length === 0) return null
+
+  return <ScopeTableComponentGroups value={value} />
+}
+
+// Testimonial Card Component
+function TestimonialCardComponent({ value }: { value: SanityTestimonialCardNode }) {
+  if (!value.testimonial) return null
+
+  const { testimonial } = value
+  const person = testimonial.person
+  const personName = [person?.firstName, person?.lastName].filter(Boolean).join(' ')
+  const companyName = person?.company?.name
+
+  return (
+    <div className="col-start-2 col-span-6 py-6">
+      <div className="rounded-lg flex flex-col gap-6">
+        {/* Quote Content */}
+        <div className="relative">
+          <span className="absolute -left-4 top-0 text-[32px] leading-[36px] text-gray-900 font-serif">&ldquo;</span>
+          <div className="text-2xl text-gray-900 leading-relaxed font-light inline pl-1">
+            <PortableTextComponent 
+              value={testimonial.content} 
+              components={{
+                block: {
+                  normal: ({ children }) => <span>{children}</span>,
+                },
+              }}
+            />
+            <span className="text-[32px] leading-[36px] text-gray-900 font-serif ml-1">&rdquo;</span>
+          </div>
+        </div>
+
+        {/* Person Info */}
+        <div className="flex items-center gap-3 justify-end">
+          {person?.headshot && (
+            <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+              <Image
+                src={urlForImage(person.headshot)?.width(64).height(64).url() || ''}
+                alt={personName}
+                fill
+                className="object-cover"
+              />
+            </div>
+          )}
+          <div>
+            <div className="text-base font-medium text-gray-900">
+              {personName}
+              {companyName && (
+                <span className="text-gray-500 font-normal">, {companyName}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Callout Component
+function CalloutComponent({ value }: { value: SanityCalloutNode }) {
+  const theme = value.theme || 'info'
+  
+  const themeStyles = {
+    info: {
+      border: 'border-blue-600',
+      badge: 'bg-blue-600',
+    },
+    success: {
+      border: 'border-green-600',
+      badge: 'bg-green-600',
+    },
+    warning: {
+      border: 'border-yellow-600',
+      badge: 'bg-yellow-600',
+    },
+    error: {
+      border: 'border-red-600',
+      badge: 'bg-red-600',
+    },
+  }
+  
+  const styles = themeStyles[theme]
+  
+  return (
+    <div className="col-start-2 col-span-6">
+      <div className={cn('rounded-lg border pl-4 pt-6 pb-4 pr-6 relative', styles.border)}>
+        {/* Badge */}
+        {value.title && (
+          <div className="absolute -top-3 left-4 z-20">
+            <span className={cn('px-2 py-1 text-xs font-medium text-white rounded', styles.badge)}>
+              {value.title}
+            </span>
+          </div>
+        )}
+        
+        {/* Content */}
+        <div className="text-base text-gray-800 leading-relaxed font-light">
+          <PortableTextComponent 
+            value={value.content}
+            components={{
+              block: {
+                normal: ({ children }) => <p className="text-base text-gray-800 font-light">{children}</p>,
+              },
+              marks: {
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                em: ({ children }) => <em className="italic">{children}</em>,
+                link: ({ children, value: linkValue }: { children?: React.ReactNode; value?: { href?: string } }) => (
+                  <a 
+                    href={linkValue?.href} 
+                    className="text-blue-600 hover:text-blue-700 underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {children}
+                  </a>
+                ),
+              },
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Video Module Component
+function VideoModuleComponent({ value }: { value: SanityVideoModuleNode }) {
+  console.log('🎥 VideoModuleComponent received:', JSON.stringify(value, null, 2))
+  
+  if (!value.video?.muxVideoId) {
+    console.log('❌ No muxVideoId found. Video object:', value.video)
+    return null
+  }
+
+  const { video, caption, autoplay, loop, muted } = value
+  const playbackId = String(video.muxVideoId).trim()
+  
+  console.log('✅ Rendering video with ID:', playbackId)
+
+  return (
+    <div className="col-span-8 py-6">
+      <div className="rounded-lg overflow-hidden">
+        <MuxPlayer
+          playbackId={playbackId}
+          metadata={{
+            video_title: video.title || 'Video',
+          }}
+          streamType="on-demand"
+          autoPlay={autoplay ? 'muted' : false}
+          loop={loop}
+          muted={muted}
+          style={{
+            aspectRatio: '16/9',
+            width: '100%',
+            borderRadius: '0.5rem',
+            overflow: 'hidden',
+          }}
+          placeholder={video.thumbnail ? urlForImage(video.thumbnail)?.url() : undefined}
+          onError={(error) => {
+            console.error('❌ MuxPlayer error:', error)
+          }}
+        />
+      </div>
+      {caption && (
+        <p className="text-sm text-gray-600 mt-3 text-center font-light">
+          {caption}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// Reel Carousel Component
+function ReelCarouselComponent({ value }: { value: SanityReelCarouselNode }) {
+  const videoCount = value.videos?.length || 0
+  const [activeIndex, setActiveIndex] = React.useState(videoCount) // Start at first "real" video in middle set
+  const [isTransitioning, setIsTransitioning] = React.useState(true)
+  
+  // Handle infinite loop wrap-around
+  React.useEffect(() => {
+    if (!videoCount) return
+    
+    if (activeIndex >= videoCount * 2) {
+      // Reached end of second set, jump back to first set
+      setTimeout(() => {
+        setIsTransitioning(false)
+        setActiveIndex(activeIndex - videoCount)
+      }, 500) // Wait for transition to complete
+    } else if (activeIndex < videoCount) {
+      // Reached start of first set, jump forward to second set
+      setTimeout(() => {
+        setIsTransitioning(false)
+        setActiveIndex(activeIndex + videoCount)
+      }, 500)
+    }
+  }, [activeIndex, videoCount])
+
+  // Re-enable transitions after jump
+  React.useEffect(() => {
+    if (!isTransitioning) {
+      setTimeout(() => setIsTransitioning(true), 50)
+    }
+  }, [isTransitioning])
+
+  if (!value.videos || value.videos.length === 0) return null
+
+  // Create infinite array: [...videos, ...videos, ...videos]
+  const infiniteVideos = [...value.videos, ...value.videos, ...value.videos]
+
+  return (
+    <div className="col-span-8 py-6">
+      {value.title && (
+        <h3 className="text-xl font-medium text-gray-900 mb-6">
+          {value.title}
+        </h3>
+      )}
+      <div className="relative h-[650px] flex items-center justify-center overflow-hidden">
+        {/* Horizontal carousel container */}
+        <div 
+          className="flex items-center gap-4"
+          style={{
+            transform: `translateX(calc(50% - 170px - ${activeIndex * (340 + 16)}px))`,
+            transition: isTransitioning ? 'transform 500ms ease-out' : 'none',
+          }}
+        >
+          {infiniteVideos.map((video, index) => {
+            if (!video?.muxVideoId) return null
+            
+            const playbackId = String(video.muxVideoId).trim()
+            const isActive = index === activeIndex
+            
+            // Calculate position relative to active
+            const offset = index - activeIndex
+            
+            const getScale = () => {
+              if (offset === 0) return 1
+              return 0.85
+            }
+            
+            const getZIndex = () => {
+              if (offset === 0) return 20
+              return 10
+            }
+            
+            return (
+              <div
+                key={index}
+                className="flex-shrink-0 transition-all duration-500 ease-out cursor-pointer"
+                style={{
+                  transform: `scale(${getScale()})`,
+                  zIndex: getZIndex(),
+                }}
+                onClick={() => setActiveIndex(index)}
+              >
+                <div className="w-[340px] h-[600px] rounded-3xl overflow-hidden">
+                  <MuxPlayer
+                    playbackId={playbackId}
+                    metadata={{
+                      video_title: video.title || `Reel ${index + 1}`,
+                    }}
+                    streamType="on-demand"
+                    muted={!isActive}
+                    autoPlay={isActive ? 'muted' : false}
+                    style={{
+                      aspectRatio: '9/16',
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '1.5rem',
+                      overflow: 'hidden',
+                    }}
+                    placeholder={video.thumbnail ? urlForImage(video.thumbnail)?.url() : undefined}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Gantt Chart Component
+function GanttChartComponent({ value }: { value: SanityGanttChartNode }) {
+  const ganttRef = useRef<HTMLDivElement>(null)
+  const ganttInstance = useRef<typeof Gantt | null>(null)
+  const [currentViewMode, setCurrentViewMode] = useState<string>(value.viewMode || 'Day')
+
+  // Load Frappe Gantt CSS dynamically
+  useEffect(() => {
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = 'https://cdn.jsdelivr.net/npm/frappe-gantt@1.0.4/dist/frappe-gantt.min.css'
+    document.head.appendChild(link)
+    
+    return () => {
+      document.head.removeChild(link)
+    }
+  }, [])
+
+  // Initialize Gantt chart once
+  useEffect(() => {
+    if (!ganttRef.current || !value.tasks || value.tasks.length === 0) return
+
+    // Clear the container to prevent double rendering
+    ganttRef.current.innerHTML = ''
+
+    // Color mapping - all tasks use black
+    const colorMap: Record<string, string> = {
+      blue: '#000000',
+      green: '#000000',
+      purple: '#000000',
+      orange: '#000000',
+      red: '#000000',
+      gray: '#000000',
+    }
+
+    // Transform Sanity tasks to Frappe Gantt format
+    const tasks = value.tasks.map((task, index) => ({
+      id: `task-${index}`,
+      name: task.name,
+      start: task.startDate,
+      end: task.endDate,
+      progress: task.progress || 0,
+      dependencies: task.dependencies || '',
+      custom_class: task.color || 'blue',
+    }))
+
+    // Create new Gantt instance
+    try {
+      ganttInstance.current = new Gantt(ganttRef.current, tasks, {
+        view_mode: currentViewMode,
+        bar_height: 64,
+        bar_corner_radius: 3,
+        arrow_curve: 5,
+        padding: 18,
+        view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month', 'Year'],
+        date_format: 'YYYY-MM-DD',
+        infinite_padding: false,
+        readonly: true,
+        custom_popup_html: function(task: { name: string; _start: Date; _end: Date; progress: number }) {
+          const progress = task.progress || 0
+          const startDate = task._start && typeof task._start.toLocaleDateString === 'function' 
+            ? task._start.toLocaleDateString() 
+            : ''
+          const endDate = task._end && typeof task._end.toLocaleDateString === 'function'
+            ? task._end.toLocaleDateString()
+            : ''
+          return `
+            <div class="gantt-popup">
+              <div class="font-medium text-sm mb-1">${task.name}</div>
+              <div class="text-xs text-gray-600">
+                ${startDate} - ${endDate}
+              </div>
+              ${value.showProgress !== false ? `<div class="text-xs text-gray-600 mt-1">Progress: ${progress}%</div>` : ''}
+            </div>
+          `
+        },
+        on_click: function(task: { id: string; name: string }) {
+          console.log('Task clicked:', task)
+        },
+      })
+
+      // Apply custom colors
+      value.tasks.forEach((task, index) => {
+        if (task.color && ganttRef.current) {
+          const bar = ganttRef.current.querySelector(`[data-id="task-${index}"] .bar`)
+          const color = colorMap[task.color]
+          if (bar && color) {
+            (bar as HTMLElement).style.fill = color
+          }
+        }
+      })
+    } catch (error) {
+      console.error('Error creating Gantt chart:', error)
+    }
+
+    return () => {
+      const container = ganttRef.current
+      if (container) {
+        container.innerHTML = ''
+      }
+      ganttInstance.current = null
+    }
+  }, [value, currentViewMode])
+
+  // Change view mode when currentViewMode changes
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (ganttInstance.current && (ganttInstance.current as any).change_view_mode) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (ganttInstance.current as any).change_view_mode(currentViewMode)
+    }
+  }, [currentViewMode])
+
+  const changeViewMode = (mode: string) => {
+    setCurrentViewMode(mode)
+  }
+
+  if (!value.tasks || value.tasks.length === 0) return null
+
+  const viewModes = ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month', 'Year']
+
+  return (
+    <div className="col-span-8 py-6">
+      {value.title && (
+        <h3 className="text-xl font-medium text-gray-900 mb-6">
+          {value.title}
+        </h3>
+      )}
+      
+      {/* View Mode Switcher */}
+      <div className="flex gap-2 mb-4">
+        {viewModes.map((mode) => (
+          <button
+            key={mode}
+            onClick={() => changeViewMode(mode)}
+            className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+              currentViewMode === mode
+                ? 'bg-black text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {mode}
+          </button>
+        ))}
+      </div>
+
+      <div className="gantt-container bg-white rounded-lg border border-gray-200 p-4 overflow-x-auto">
+        <div ref={ganttRef}></div>
+      </div>
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        .gantt .bar {
+          fill: #000000 !important;
+          stroke: #000000 !important;
+          stroke-width: 0 !important;
+        }
+        
+        .gantt .bar-progress {
+          fill: #333333 !important;
+        }
+        
+        .gantt .bar-label {
+          fill: #ffffff !important;
+        }
+      `}} />
+    </div>
+  )
+}
+
+// Custom InformationFillSmall component
+function InformationFillSmall({ className }: { className?: string }) {
+  return (
+    <svg 
+      className={className}
+      viewBox="0 0 24 24" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="12" cy="12" r="10" fill="currentColor" />
+      <path 
+        d="M12 16V12M12 8H12.01" 
+        stroke="white" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+// Scope Table Groups Component (for new schema structure)
+function ScopeTableComponentGroups({ value }: { value: SanityScopeTableNode }) {
+  const [openItems, setOpenItems] = useState<string[]>(
+    value.scopeGroups?.[0]?.groupName ? [value.scopeGroups[0].groupName] : []
+  )
+
+  const handleTooltipHover = (itemName: string, tooltipText: string) => {
+    try {
+      trackEvent("Tooltip Viewed", {
+        itemName,
+        tooltipText,
+      })
+    } catch (err) {
+      console.warn("Segment tracking failed", err)
+    }
+  }
+
+  const handleScopeGroupChange = (newOpenItems: string[]) => {
+    // Track which groups were opened or closed
+    const previouslyOpen = new Set(openItems)
+    const nowOpen = new Set(newOpenItems)
+    
+    // Find newly opened groups
+    newOpenItems.forEach((groupName) => {
+      if (!previouslyOpen.has(groupName)) {
+        try {
+          trackEvent("Scope Group Opened", {
+            groupName,
+          })
+        } catch (err) {
+          console.warn("Segment tracking failed", err)
+        }
+      }
+    })
+    
+    // Find newly closed groups
+    openItems.forEach((groupName) => {
+      if (!nowOpen.has(groupName)) {
+        try {
+          trackEvent("Scope Group Closed", {
+            groupName,
+          })
+        } catch (err) {
+          console.warn("Segment tracking failed", err)
+        }
+      }
+    })
+    
+    setOpenItems(newOpenItems)
+  }
+
+  if (!value.scopeGroups || value.scopeGroups.length === 0) return null
+
+  return (
+    <div className="col-span-8">
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        {/* Table header */}
+        <div className="bg-white border-b border-gray-200">
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: `1.25fr repeat(${value.options.length}, 1fr)` }}
+          >
+            <div className="text-left p-4 text-base font-medium text-gray-900 border-r border-gray-200">
+              Scope
+            </div>
+            {value.options.map((optionName: string, optionIndex: number) => (
+              <div
+                key={optionIndex}
+                className={cn(
+                  'text-center p-4 text-base font-medium text-gray-900',
+                  optionIndex < value.options.length - 1 && 'border-r border-gray-200'
+                )}
+              >
+                {optionName}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Accordion groups */}
+        <Accordion.Root
+          type="multiple"
+          className="w-full"
+          value={openItems}
+          onValueChange={handleScopeGroupChange}
+        >
+          {value.scopeGroups.map((group) => {
+            return (
+              <Accordion.Item
+                key={group.groupName}
+                value={group.groupName}
+                className="border-b border-gray-100"
+              >
+                <Accordion.Header className="w-full">
+                  <Accordion.Trigger className="bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer w-full p-3 text-sm font-medium text-gray-700 border-b border-gray-200 text-left flex items-center justify-between group">
+                    <div className="flex items-center gap-2">
+                      <ChevronDown className="w-4 h-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      {group.groupName}
+                    </div>
+                  </Accordion.Trigger>
+                </Accordion.Header>
+
+                <Accordion.Content 
+                  className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up"
+                  style={{
+                    // @ts-expect-error - Custom CSS variable for overflow handling
+                    '--accordion-overflow': 'hidden',
+                  }}
+                  onAnimationEnd={(e) => {
+                    const target = e.currentTarget;
+                    if (target.getAttribute('data-state') === 'open') {
+                      target.style.overflow = 'visible';
+                    }
+                  }}
+                  onAnimationStart={(e) => {
+                    const target = e.currentTarget;
+                    target.style.overflow = 'hidden';
+                  }}
+                >
+                    <div className="divide-y divide-gray-100">
+                      {group.items?.map((scopeItem, itemIndex) => (
+                        <div
+                          key={`${group.groupName}-${itemIndex}`}
+                          className="grid"
+                          style={{ gridTemplateColumns: `1.25fr repeat(${value.options.length}, 1fr)` }}
+                        >
+                          {/* Scope item cell */}
+                          <div className="p-4 border-r border-gray-200">
+                            <div className="">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <div className="[font-size:14px] text-gray-900">{scopeItem.item}</div>
+                                  {scopeItem.tooltip && (
+                                    <div 
+                                      className="group relative"
+                                      onMouseEnter={() => handleTooltipHover(scopeItem.item, scopeItem.tooltip!)}
+                                    >
+                                      <InformationFillSmall className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                                      {/* Tooltip */}
+                                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+                                        <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 w-80 shadow-lg">
+                                          {scopeItem.tooltip}
+                                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                            <div className="border-4 border-transparent border-t-gray-900"></div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                {scopeItem.description && (
+                                  <div className="text-base text-gray-500 mt-1">
+                                    {scopeItem.description}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Option availability cells */}
+                          {value.options.map((optionName: string, optionIndex: number) => {
+                            const availability = scopeItem.optionAvailability?.find(
+                              (o: { optionIndex: number }) => o.optionIndex === optionIndex
+                            )
+
+                            return (
+                              <div
+                                key={optionIndex}
+                                className={cn(
+                                  'p-4 text-center flex items-center justify-center',
+                                  optionIndex < value.options.length - 1 && 'border-r border-gray-200'
+                                )}
+                              >
+                                {availability ? (
+                                  availability.included === 'custom' ? (
+                                    <span className="[font-size:14px] text-gray-700">
+                                      {availability.customText}
+                                    </span>
+                                  ) : availability.included === 'included' ? (
+                                    <Check className="w-4 h-4 text-gray-600 mx-auto" />
+                                  ) : availability.included === 'limited' ? (
+                                    <AlertCircle className="w-4 h-4 text-orange-500 mx-auto" />
+                                  ) : (
+                                    <span className="text-base text-gray-400">—</span>
+                                  )
+                                ) : (
+                                  <span className="text-base text-gray-400">—</span>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                </Accordion.Content>
+              </Accordion.Item>
+            )
+          })}
+        </Accordion.Root>
+      </div>
+    </div>
+  )
+}
+
 const components: Partial<PortableTextReactComponents> = {
   block: {
     h1: ({ children, value }: { children?: React.ReactNode; value?: PortableTextBlock }) => {
-      console.log('🎯 Rendering h1 block:', children)
       const headingId = value?._key || `h1-${Math.random().toString(36).slice(2)}`
       return <h1 id={headingId} className="text-5xl font-light text-black leading-tight tracking-tight col-start-2 col-span-6">{children}</h1>
     },
@@ -269,27 +1280,10 @@ const components: Partial<PortableTextReactComponents> = {
     ),
   },
   listItem: {
-    bullet: ({ children, value }: { children?: React.ReactNode; value?: { level?: number } }) => {
-      // Determine nesting level based on the value's level property or default to 1
-      const level = value?.level || 1
-      
-      // Different dash styles for different nesting levels
-      const getDashStyle = (level: number) => {
-        switch (level) {
-          case 1:
-            return '—' // Em dash (longest)
-          case 2:
-            return '–' // En dash (medium)
-          case 3:
-            return '-' // Hyphen (shortest)
-          default:
-            return '·' // Bullet point for deeper nesting
-        }
-      }
-      
+    bullet: ({ children }: { children?: React.ReactNode }) => {
       return (
         <li className="flex items-start">
-          <span className="mr-3 text-gray-700 flex-shrink-0 text-lg">{getDashStyle(level)}</span>
+          <span className="flex-shrink-0 w-1.5 h-1.5 bg-gray-700 rounded-full mt-3 mr-2"></span>
           <span className="flex-1 text-lg">{children}</span>
         </li>
       )
@@ -382,19 +1376,10 @@ const components: Partial<PortableTextReactComponents> = {
                                   ),
                                 },
                                 listItem: {
-                                  bullet: ({ children, value }: { children?: React.ReactNode; value?: { level?: number } }) => {
-                                    const level = value?.level || 1
-                                    const getDashStyle = (level: number) => {
-                                      switch (level) {
-                                        case 1: return '—'
-                                        case 2: return '–'
-                                        case 3: return '-'
-                                        default: return '·'
-                                      }
-                                    }
+                                  bullet: ({ children }: { children?: React.ReactNode }) => {
                                     return (
                                       <li className="flex items-start">
-                                        <span className="mr-2 text-gray-700 flex-shrink-0 text-sm">{getDashStyle(level)}</span>
+                                        <span className="flex-shrink-0 w-1.5 h-1.5 bg-gray-700 rounded-full mt-2 mr-2"></span>
                                         <span className="flex-1 text-sm">{children}</span>
                                       </li>
                                     )
@@ -439,6 +1424,41 @@ const components: Partial<PortableTextReactComponents> = {
           </div>
         </div>
       )
+    },
+    pricingTable: ({ value }: { value?: PricingTableNode }) => {
+      console.log('💰 Rendering pricing table:', value)
+      if (!value) return null
+      return <PricingTableComponent value={value} />
+    },
+    scopeTable: ({ value }: { value?: SanityScopeTableNode }) => {
+      console.log('📊 Rendering scope table:', value)
+      if (!value) return null
+      return <ScopeTableComponent value={value} />
+    },
+    testimonialCard: ({ value }: { value?: SanityTestimonialCardNode }) => {
+      console.log('💬 Rendering testimonial card:', value)
+      if (!value) return null
+      return <TestimonialCardComponent value={value} />
+    },
+    callout: ({ value }: { value?: SanityCalloutNode }) => {
+      console.log('📢 Rendering callout:', value)
+      if (!value) return null
+      return <CalloutComponent value={value} />
+    },
+    videoModule: ({ value }: { value?: SanityVideoModuleNode }) => {
+      console.log('🎥 Rendering video module:', value)
+      if (!value) return null
+      return <VideoModuleComponent value={value} />
+    },
+    reelCarousel: ({ value }: { value?: SanityReelCarouselNode }) => {
+      console.log('🎬 Rendering reel carousel:', value)
+      if (!value) return null
+      return <ReelCarouselComponent value={value} />
+    },
+    ganttChart: ({ value }: { value?: SanityGanttChartNode }) => {
+      console.log('📊 Rendering Gantt chart:', value)
+      if (!value) return null
+      return <GanttChartComponent value={value} />
     },
   },
 }

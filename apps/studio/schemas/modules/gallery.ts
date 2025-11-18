@@ -1,7 +1,10 @@
+import { ImagesIcon } from '@sanity/icons'
+
 export const gallery = {
   name: 'gallery',
   title: 'Gallery',
   type: 'object',
+  icon: ImagesIcon,
   fields: [
     {
       name: 'slides',

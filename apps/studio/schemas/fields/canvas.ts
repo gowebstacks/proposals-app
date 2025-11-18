@@ -77,6 +77,27 @@ const canvas = defineType({
         {
           type: 'accordion',
         },
+        {
+          type: 'pricingTable',
+        },
+        {
+          type: 'scopeTable',
+        },
+        {
+          type: 'testimonialCard',
+        },
+        {
+          type: 'callout',
+        },
+        {
+          type: 'videoModule',
+        },
+        {
+          type: 'reelCarousel',
+        },
+        {
+          type: 'ganttChart',
+        },
       ],
       description: 'Rich text content for the canvas',
     },

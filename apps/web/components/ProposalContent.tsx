@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 // import dynamic from 'next/dynamic' // Temporarily disabled
 import { Tabs } from '@/components/ui/tabs'
 // import { Button } from '@/components/ui/button' // Temporarily disabled
-import { FileText } from 'lucide-react' // Sparkles temporarily disabled
+import { FileText, Share2, Link2, Copy, Check } from 'lucide-react' // Sparkles temporarily disabled
 import Image from 'next/image'
 import PortableText from '@/components/PortableText'
 import type { TypedObject } from '@portabletext/types'
@@ -13,6 +13,8 @@ import { urlForImage } from '@/lib/sanity'
 import { RoomProvider } from '@/lib/liveblocks'
 import { cn } from '@/lib/utils'
 import Logo from '@/components/Logo'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { trackEvent } from '@/utils/segment'
 
 // Dynamic import to avoid SSR issues with Liveblocks (temporarily disabled)
 // const LiveblocksCopilot = dynamic(() => import('@/components/LiveblocksCopilot'), {
@@ -108,7 +110,34 @@ export default function ProposalContent({
   const [isScrolled, setIsScrolled] = useState(false)
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
   const [indicatorStyle, setIndicatorStyle] = useState({ top: 0, height: 0 })
+  const [copied, setCopied] = useState(false)
   const router = useRouter()
+
+  // Track proposal viewed on mount
+  useEffect(() => {
+    try {
+      trackEvent("Proposal Viewed", {
+        tabTitle: tabs[activeTabIndex]?.title || 'Untitled',
+        tabIndex: activeTabIndex,
+      })
+    } catch (err) {
+      console.warn("Segment tracking failed", err)
+    }
+  }, [proposalSlug, tabs, activeTabIndex]) // Only track once on mount
+
+  // Track tab changes
+  useEffect(() => {
+    if (activeTabIndex > 0) { // Skip initial load (already tracked above)
+      try {
+        trackEvent("Proposal Tab Changed", {
+          tabTitle: tabs[activeTabIndex]?.title || 'Untitled',
+          tabIndex: activeTabIndex,
+        })
+      } catch (err) {
+        console.warn("Segment tracking failed", err)
+      }
+    }
+  }, [activeTabIndex, proposalSlug, tabs])
 
   // Generate tab slug from title
   const generateTabSlug = (title: string) => {
@@ -187,6 +216,37 @@ export default function ProposalContent({
         block: 'start',
         inline: 'nearest'
       })
+      
+      // Track heading navigation
+      const heading = outline[activeTabIndex]?.headings.find(h => h.id === headingId)
+      if (heading) {
+        try {
+          trackEvent("Proposal Heading Clicked", {
+            headingText: heading.text,
+            headingLevel: heading.level,
+            tabIndex: activeTabIndex,
+          })
+        } catch (err) {
+          console.warn("Segment tracking failed", err)
+        }
+      }
+    }
+  }
+
+  // Copy URL to clipboard
+  const copyToClipboard = async () => {
+    const url = window.location.href
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+      
+      // Track share action
+      trackEvent("Proposal Shared", {
+        method: 'copy_link',
+      })
+    } catch (err) {
+      console.error('Failed to copy:', err)
     }
   }
 
@@ -238,16 +298,69 @@ export default function ProposalContent({
               className="h-5 w-auto"
             />
           </div>
-          {calendarLink && (
-            <a
-              href={calendarLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-black rounded-full hover:bg-blue-600 transition-colors"
-            >
-              Schedule a call
-            </a>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Share Button */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="inline-flex items-center px-4 py-2 text-sm font-medium text-black bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors">
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-96">
+                <div className="space-y-4">
+                  <h3 className="text-base font-medium text-gray-900">Share this proposal</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+                      <Link2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <input
+                        type="text"
+                        value={typeof window !== 'undefined' ? window.location.href : ''}
+                        readOnly
+                        className="flex-1 bg-transparent text-sm text-gray-600 outline-none"
+                      />
+                    </div>
+                    
+                    <button
+                      onClick={copyToClipboard}
+                      className="w-full flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-black rounded-full hover:bg-gray-800 transition-colors"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4 mr-2" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy URL
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+            
+            {calendarLink && (
+              <a
+                href={calendarLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  try {
+                    trackEvent("Proposal Calendar Clicked")
+                  } catch (err) {
+                    console.warn("Segment tracking failed", err)
+                  }
+                }}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-black rounded-full hover:bg-blue-600 transition-colors"
+              >
+                Schedule a call
+              </a>
+            )}
+          </div>
         </div>
       </div>
       
@@ -466,6 +579,13 @@ export default function ProposalContent({
                   href={googleDocUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => {
+                    try {
+                      trackEvent("Proposal Google Doc Opened")
+                    } catch (err) {
+                      console.warn("Segment tracking failed", err)
+                    }
+                  }}
                   className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium text-black bg-white rounded-md hover:bg-gray-100 transition-colors duration-200"
                 >
                   <Image 
