@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils'
 import Logo from '@/components/Logo'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { trackEvent } from '@/utils/segment'
+import ProposalSidebar from '@/components/ProposalSidebar'
+import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext'
 
 // Dynamic import to avoid SSR issues with Liveblocks (temporarily disabled)
 // const LiveblocksCopilot = dynamic(() => import('@/components/LiveblocksCopilot'), {
@@ -98,7 +100,7 @@ interface ProposalContentProps {
   preparedBy?: Person
 }
 
-export default function ProposalContent({
+function ProposalContentInner({
   tabs,
   proposalSlug,
   activeTabIndex,
@@ -107,6 +109,7 @@ export default function ProposalContent({
   calendarLink,
   preparedBy
 }: ProposalContentProps) {
+  const { isCollapsed: isSidebarCollapsed } = useSidebar()
   const [isScrolled, setIsScrolled] = useState(false)
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
   const [indicatorStyle, setIndicatorStyle] = useState({ top: 0, height: 0 })
@@ -279,16 +282,23 @@ export default function ProposalContent({
       initialPresence={{}}
       initialStorage={{}}
     >
-      <div className="min-h-screen bg-white text-black">
+      <div className="min-h-screen bg-white text-black" style={{ paddingLeft: isSidebarCollapsed ? '64px' : '256px', transition: 'padding-left 300ms' }}>
+      {/* Left Sidebar */}
+      <ProposalSidebar />
+      
       {/* Fixed Header with Logo and optional Schedule button */}
       <div
         className={cn(
-          "fixed top-0 left-0 z-40 transition-all duration-200",
-          isScrolled ? "bg-white/95 backdrop-blur-sm border-b border-gray-200" : "bg-white"
+          "fixed top-0 left-0 z-40 transition-all duration-300 border-b border-gray-200",
+          isScrolled ? "bg-white/95 backdrop-blur-sm" : "bg-white"
         )}
-        style={{ width: 'calc(100% - 320px)' }}
+        style={{ 
+          left: isSidebarCollapsed ? '64px' : '256px',
+          width: isSidebarCollapsed ? 'calc(100% - 384px)' : 'calc(100% - 576px)',
+          height: isSidebarCollapsed ? '104px' : '64px'
+        }}
       >
-        <div className="px-8 py-6 flex items-center justify-between">
+        <div className="px-8 h-full flex items-center justify-between">
           <div className="flex items-center">
             <Image
               src="/webstacks-logotype-onlight.svg"
@@ -367,7 +377,13 @@ export default function ProposalContent({
       <div className="relative">
         <div className="grid grid-cols-[1fr_320px] min-h-screen">
           {/* Main Content Area */}
-          <div className="bg-white px-8 pt-24">
+          <div 
+            className="bg-white px-8"
+            style={{ 
+              paddingTop: isSidebarCollapsed ? '104px' : '64px',
+              transition: 'padding-top 300ms'
+            }}
+          >
             <div className="grid place-items-center min-h-full">
               <div style={{ maxWidth: '880px' }}>
                 {/* Main Content */}
@@ -608,5 +624,13 @@ export default function ProposalContent({
       {/* Liveblocks Copilot temporarily hidden */}
       </div>
     </RoomProvider>
+  )
+}
+
+export default function ProposalContent(props: ProposalContentProps) {
+  return (
+    <SidebarProvider>
+      <ProposalContentInner {...props} />
+    </SidebarProvider>
   )
 }
