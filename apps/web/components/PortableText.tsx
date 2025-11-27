@@ -383,9 +383,20 @@ function PricingTableComponent({ value }: { value: PricingTableNode }) {
     return `${symbol}${formatted}`
   }
 
+  // Dynamic grid columns based on number of options
+  const getGridCols = (optionCount: number) => {
+    switch (optionCount) {
+      case 1: return 'md:grid-cols-1'
+      case 2: return 'md:grid-cols-2'
+      case 3: return 'md:grid-cols-3'
+      case 4: return 'md:grid-cols-4'
+      default: return 'md:grid-cols-3' // fallback for 5+ options
+    }
+  }
+
   return (
     <div className="col-span-8">
-      <div className="grid gap-0 border border-gray-200 rounded-lg mt-6 grid-cols-1 md:grid-cols-3">
+      <div className={`grid gap-0 border border-gray-200 rounded-lg mt-6 grid-cols-1 ${getGridCols(options.length)}`}>
         {options.map((option: SanityPricingOption, index: number) => (
           <div
             key={option._key}
@@ -427,6 +438,7 @@ function PricingTableComponent({ value }: { value: PricingTableNode }) {
                     </div>
                   ) : option.price.type === 'range' ? (
                     <div>
+                      <span className="text-base text-gray-600">Estimates between </span>
                       <span className="text-base font-medium text-gray-900">
                         {formatCurrency(option.price.amount, option.price.currency)}
                       </span>
@@ -434,7 +446,7 @@ function PricingTableComponent({ value }: { value: PricingTableNode }) {
                       <span className="text-base font-medium text-gray-900">
                         {formatCurrency(option.price.maxAmount, option.price.currency)}
                       </span>
-                      {option.price.period !== 'once' && (
+                      {option.price.period !== 'once' && option.price.period?.toLowerCase() !== 'one time' && (
                         <span className="text-base text-gray-600 ml-1">
                           /{option.price.period === 'custom' ? option.price.customPeriod : option.price.period}
                         </span>
@@ -446,7 +458,7 @@ function PricingTableComponent({ value }: { value: PricingTableNode }) {
                       <span className="text-base font-medium text-gray-900">
                         {formatCurrency(option.price.amount, option.price.currency)}
                       </span>
-                      {option.price.period !== 'once' && (
+                      {option.price.period !== 'once' && option.price.period?.toLowerCase() !== 'one time' && (
                         <span className="text-base text-gray-600 ml-1">
                           /{option.price.period === 'custom' ? option.price.customPeriod : option.price.period}
                         </span>
@@ -461,7 +473,7 @@ function PricingTableComponent({ value }: { value: PricingTableNode }) {
                       <span className="text-base font-medium text-gray-900">
                         {formatCurrency(option.price.amount, option.price.currency)}
                       </span>
-                      {option.price.period !== 'once' && (
+                      {option.price.period !== 'once' && option.price.period?.toLowerCase() !== 'one time' && (
                         <span className="text-base text-gray-600 ml-1">
                           /{option.price.period === 'custom' ? option.price.customPeriod : option.price.period}
                         </span>
