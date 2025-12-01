@@ -8,7 +8,7 @@ import { SyncIcon } from '@sanity/icons'
 import type { DocumentActionComponent } from 'sanity'
 import type { PortableTextBlock } from '../schemas/fields/canvas'
 
-type SanityTableHeader = { text: string; alignment?: 'left' | 'center' | 'right' }
+type SanityTableHeader = { _key: string; text: string; alignment?: 'left' | 'center' | 'right' }
 
 function removeControlChars(s: string): string {
   let out = ''
@@ -20,10 +20,50 @@ function removeControlChars(s: string): string {
   }
   return out
 }
-type SanityTableCell = { content: PortableTextBlock[] }
-type SanityTableRow = { cells: SanityTableCell[] }
-type SanityTableNode = { _type: 'table'; caption?: string; headers: SanityTableHeader[]; rows: SanityTableRow[] }
-type PTContent = PortableTextBlock | SanityTableNode
+type SanityTableCell = { _key: string; content: PortableTextBlock[] }
+type SanityTableRow = { _key: string; cells: SanityTableCell[] }
+type SanityTableNode = { _type: 'table'; _key: string; caption?: string; headers: SanityTableHeader[]; rows: SanityTableRow[] }
+
+// Pricing table types
+type PricingTableOption = {
+  _key: string
+  name: string
+  description?: string
+  price: {
+    type: 'single' | 'range' | 'starting_from' | 'custom'
+    amount?: number
+    maxAmount?: number
+    customText?: string
+    currency: 'USD' | 'EUR' | 'GBP'
+    period: 'mo' | 'yr' | 'once' | 'custom'
+    customPeriod?: string
+  }
+  badge?: {
+    text?: string
+  }
+  highlights?: Array<{
+    _key: string
+    text: string
+    icon: 'check' | 'lightning' | 'rocket' | 'chart' | 'lock' | 'star'
+  }>
+}
+
+type PricingTableNode = {
+  _type: 'pricingTable'
+  _key: string
+  options: PricingTableOption[]
+}
+
+// Callout module types
+type CalloutNode = {
+  _type: 'callout'
+  _key: string
+  title?: string
+  content?: PortableTextBlock[]
+  variant?: 'info' | 'warning' | 'success' | 'error'
+}
+
+type PTContent = PortableTextBlock | SanityTableNode | PricingTableNode | CalloutNode
 
 interface DocumentActionProps {
   id: string
@@ -210,6 +250,486 @@ function mapAlignment(alignment?: string): 'left' | 'center' | 'right' {
       return 'right'
     default:
       return 'left'
+  }
+}
+
+// Check if a table is a pricing table by looking for the {{ pricingTable.module }} marker
+function isPricingTable(table: GoogleDocsTable): boolean {
+  const tableRows = table?.tableRows || []
+  if (tableRows.length === 0) return false
+  
+  // Check first row, first cell for the pricing table marker
+  const firstRow = tableRows[0]
+  const firstCell = firstRow?.tableCells?.[0]
+  if (!firstCell?.content) return false
+  
+  const cellText = extractTextFromStructuralElements(firstCell.content).trim()
+  console.log('🔍 Checking first cell text for pricing table marker:', cellText)
+  
+  // Look for the pricing table module marker
+  return cellText.includes('{{ pricingTable.module }}') || cellText.includes('{{pricingTable.module}}')
+}
+
+// Check if a table is a callout module
+function isCalloutModule(table: GoogleDocsTable): boolean {
+  const tableRows = table?.tableRows || []
+  if (tableRows.length === 0) return false
+  
+  const firstRow = tableRows[0]
+  const firstCell = firstRow?.tableCells?.[0]
+  if (!firstCell?.content) return false
+  
+  const cellText = extractTextFromStructuralElements(firstCell.content).trim()
+  console.log('🔍 Checking first cell text for callout module marker:', cellText)
+  
+  // Look for the callout module marker
+  return cellText.includes('{{ callout.module }}') || cellText.includes('{{callout.module}}')
+}
+
+// Convert a Google Docs table to a callout module
+function convertCalloutModule(table: GoogleDocsTable, doc: GoogleDocsDocument): CalloutNode {
+  const tableRows = table?.tableRows || []
+  console.log('🔍 Converting callout module with', tableRows.length, 'rows')
+  
+  if (tableRows.length < 2) {
+    console.warn('Callout module has insufficient rows, creating empty callout')
+    return {
+      _type: 'callout',
+      _key: genKey(),
+      variant: 'info'
+    }
+  }
+  
+  // Second row contains the actual callout content
+  const contentRow = tableRows[1]
+  const cells = contentRow?.tableCells || []
+  
+  let title: string | undefined
+  let content: PortableTextBlock[] | undefined
+  let variant: 'info' | 'warning' | 'success' | 'error' = 'info'
+  
+  if (cells.length >= 1) {
+    // First cell is the title
+    const titleCell = cells[0]
+    title = extractTextFromStructuralElements(titleCell?.content).trim()
+    console.log('🔍 Callout title:', title)
+  }
+  
+  if (cells.length >= 2) {
+    // Second cell is the content
+    const contentCell = cells[1]
+    const portableTextData = extractPortableTextFromStructuralElements(contentCell?.content, doc)
+    content = portableTextData.blocks
+    console.log('🔍 Callout content blocks:', content?.length || 0)
+  }
+  
+  // Determine variant based on title keywords
+  if (title) {
+    const lowerTitle = title.toLowerCase()
+    if (lowerTitle.includes('warning') || lowerTitle.includes('caution') || lowerTitle.includes('alert')) {
+      variant = 'warning'
+    } else if (lowerTitle.includes('error') || lowerTitle.includes('danger') || lowerTitle.includes('critical')) {
+      variant = 'error'
+    } else if (lowerTitle.includes('success') || lowerTitle.includes('complete') || lowerTitle.includes('done')) {
+      variant = 'success'
+    }
+  }
+  
+  const calloutNode: CalloutNode = {
+    _type: 'callout',
+    _key: genKey(),
+    variant
+  }
+  
+  if (title) {
+    calloutNode.title = title
+  }
+  
+  if (content && content.length > 0) {
+    calloutNode.content = content
+  }
+  
+  console.log('🔍 Final callout module:', JSON.stringify(calloutNode, null, 2))
+  
+  return calloutNode
+}
+
+// Parse pricing information from a text string
+function parsePriceFromText(priceText: string): PricingTableOption['price'] {
+  const cleanText = priceText.trim()
+  console.log('🔍 Parsing price from text:', JSON.stringify(cleanText))
+  
+  // Default price structure
+  const defaultPrice: PricingTableOption['price'] = {
+    type: 'custom',
+    customText: cleanText,
+    currency: 'USD',
+    period: 'mo'
+  }
+  
+  // Check for custom text patterns
+  if (cleanText.toLowerCase().includes('contact') || 
+      cleanText.toLowerCase().includes('custom') ||
+      cleanText.toLowerCase().includes('quote')) {
+    console.log('🔍 Detected custom pricing text')
+    return {
+      type: 'custom',
+      customText: cleanText,
+      currency: 'USD',
+      period: 'mo'
+    }
+  }
+  
+  // Extract currency symbol
+  let currency: 'USD' | 'EUR' | 'GBP' = 'USD'
+  if (cleanText.includes('€')) currency = 'EUR'
+  else if (cleanText.includes('£')) currency = 'GBP'
+  else if (cleanText.includes('$')) currency = 'USD'
+  
+  // Extract period
+  let period: 'mo' | 'yr' | 'once' | 'custom' = 'mo'
+  if (cleanText.includes('/yr') || cleanText.includes('year') || cleanText.includes('annually')) period = 'yr'
+  else if (cleanText.toLowerCase().includes('once') || cleanText.toLowerCase().includes('one-time') || cleanText.toLowerCase().includes('one time')) period = 'once'
+  
+  console.log('🔍 Detected currency:', currency, 'period:', period)
+  
+  // Enhanced number extraction - handle various formats
+  const numberMatches = cleanText.match(/\$?[\d,]+(?:\.\d+)?/g)
+  console.log('🔍 Number matches found:', numberMatches)
+  
+  if (!numberMatches) {
+    console.log('🔍 No numbers found, returning default price')
+    return defaultPrice
+  }
+  
+  const numbers = numberMatches.map(n => parseFloat(n.replace(/[$,]/g, '')))
+  console.log('🔍 Parsed numbers:', numbers)
+  
+  // Check for range (e.g., "$50-$200/mo", "$160,000 - $200,000")
+  // Be more aggressive about detecting ranges - look for multiple numbers AND range indicators
+  const hasRangeIndicator = cleanText.includes('-') || cleanText.includes('to') || cleanText.includes('–') || cleanText.includes(' - ')
+  if (numbers.length >= 2 && hasRangeIndicator) {
+    const result = {
+      type: 'range' as const,
+      amount: Math.min(...numbers),
+      maxAmount: Math.max(...numbers),
+      currency,
+      period
+    }
+    console.log('🔍 Detected price range:', result)
+    return result
+  }
+  
+  // Also check if we have multiple numbers even without explicit range indicators
+  if (numbers.length >= 2) {
+    console.log('🔍 Multiple numbers found, treating as range:', numbers)
+    const result = {
+      type: 'range' as const,
+      amount: Math.min(...numbers),
+      maxAmount: Math.max(...numbers),
+      currency,
+      period
+    }
+    console.log('🔍 Detected implicit price range:', result)
+    return result
+  }
+  
+  // Check for "starting from" pattern
+  if (cleanText.toLowerCase().includes('starting') || cleanText.toLowerCase().includes('from')) {
+    const result = {
+      type: 'starting_from' as const,
+      amount: numbers[0],
+      currency,
+      period
+    }
+    console.log('🔍 Detected starting from price:', result)
+    return result
+  }
+  
+  // Single amount
+  if (numbers.length >= 1) {
+    const result = {
+      type: 'single' as const,
+      amount: numbers[0],
+      currency,
+      period
+    }
+    console.log('🔍 Detected single price:', result)
+    return result
+  }
+  
+  console.log('🔍 Fallback to default price')
+  return defaultPrice
+}
+
+// Parse highlights from bullet-pointed text
+function parseHighlights(highlightText: string): PricingTableOption['highlights'] {
+  console.log('🔍 Parsing highlights from text:', JSON.stringify(highlightText))
+  
+  // Split by newlines and also handle cases where bullets might be separated by other means
+  let lines = highlightText.split('\n').filter(line => line.trim())
+  
+  // If no newlines, try splitting by bullet characters directly
+  if (lines.length === 1 && lines[0] && lines[0].includes('•')) {
+    lines = lines[0].split('•').filter(line => line.trim())
+  }
+  
+  const highlights: PricingTableOption['highlights'] = []
+  
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    
+    // Remove various bullet point formats and clean up
+    const cleanText = trimmed
+      .replace(/^[•·\-*]\s*/, '') // Standard bullets
+      .replace(/^\d+\.\s*/, '') // Numbered lists
+      .replace(/^[a-zA-Z]\.\s*/, '') // Lettered lists
+      .trim()
+    
+    if (!cleanText) continue
+    
+    console.log('🔍 Processing highlight item:', cleanText)
+    
+    // Determine icon based on content
+    let icon: 'check' | 'lightning' | 'rocket' | 'chart' | 'lock' | 'star' = 'check'
+    const lowerText = cleanText.toLowerCase()
+    
+    if (lowerText.includes('fast') || lowerText.includes('speed') || lowerText.includes('quick')) {
+      icon = 'lightning'
+    } else if (lowerText.includes('launch') || lowerText.includes('deploy') || lowerText.includes('boost')) {
+      icon = 'rocket'
+    } else if (lowerText.includes('analytics') || lowerText.includes('report') || lowerText.includes('data')) {
+      icon = 'chart'
+    } else if (lowerText.includes('secure') || lowerText.includes('private') || lowerText.includes('protected')) {
+      icon = 'lock'
+    } else if (lowerText.includes('premium') || lowerText.includes('best') || lowerText.includes('featured')) {
+      icon = 'star'
+    }
+    
+    const highlight = {
+      _key: genKey(),
+      text: cleanText,
+      icon
+    }
+    
+    console.log('🔍 Created highlight:', highlight)
+    highlights.push(highlight)
+  }
+  
+  console.log('🔍 Final highlights array:', highlights)
+  return highlights
+}
+
+// Convert Google Docs pricing table to Sanity pricing table
+function convertPricingTable(table: GoogleDocsTable, doc: GoogleDocsDocument): PricingTableNode {
+  const tableRows = table?.tableRows || []
+  console.log('🔍 Converting pricing table with', tableRows.length, 'rows')
+  
+  if (tableRows.length < 3) {
+    console.warn('Pricing table has insufficient rows, creating empty pricing table')
+    return {
+      _type: 'pricingTable',
+      _key: genKey(),
+      options: []
+    }
+  }
+  
+  // Skip first row (contains the marker)
+  // Second row contains plan names
+  const headerRow = tableRows[1]
+  const planCells = headerRow?.tableCells || []
+  
+  // Skip first cell if it's a label column (like "Option Name")
+  const planNames: string[] = []
+  const startIndex = planCells.length > 2 ? 1 : 0 // Skip first column if it's a label
+  
+  for (let i = startIndex; i < planCells.length; i++) {
+    const cell = planCells[i]
+    const planName = extractTextFromStructuralElements(cell?.content).trim()
+    if (planName) {
+      planNames.push(planName)
+    }
+  }
+  
+  console.log('🔍 Found plan names:', planNames)
+  
+  // Initialize options for each plan
+  const options: PricingTableOption[] = planNames.map(name => ({
+    _key: genKey(),
+    name,
+    price: {
+      type: 'custom' as const,
+      customText: 'Contact for pricing',
+      currency: 'USD' as const,
+      period: 'mo' as const
+    }
+  }))
+  
+  // Process remaining rows to extract pricing and features
+  for (let rowIndex = 2; rowIndex < tableRows.length; rowIndex++) {
+    const row = tableRows[rowIndex]
+    const cells = row?.tableCells || []
+    
+    if (cells.length === 0) continue
+    
+    // Get the row label from first cell
+    const rowLabel = extractTextFromStructuralElements(cells[0]?.content).trim().toLowerCase()
+    console.log('🔍 Processing row:', rowLabel)
+    
+    // Process each plan column
+    for (let colIndex = startIndex; colIndex < cells.length && colIndex - startIndex < options.length; colIndex++) {
+      const cell = cells[colIndex]
+      const cellText = extractTextFromStructuralElements(cell?.content).trim()
+      const optionIndex = colIndex - startIndex
+      
+      if (!cellText || optionIndex >= options.length) continue
+      
+      // Determine what type of data this row contains
+      console.log('🔍 Processing cell - Row label:', rowLabel, 'Cell text:', JSON.stringify(cellText), 'Option index:', optionIndex)
+      
+      if (rowLabel.includes('price type') || rowLabel.includes('pricetype')) {
+        // This is price type information - determine the type from cell text
+        const option = options[optionIndex]
+        if (option && cellText) {
+          const lowerText = cellText.toLowerCase()
+          let priceType: 'single' | 'range' | 'starting_from' | 'custom' = 'single'
+          
+          if (lowerText.includes('range') || lowerText.includes('price range')) {
+            priceType = 'range'
+          } else if (lowerText.includes('starting') || lowerText.includes('from')) {
+            priceType = 'starting_from'
+          } else if (lowerText.includes('custom') || lowerText.includes('contact')) {
+            priceType = 'custom'
+          }
+          
+          option.price = {
+            ...option.price,
+            type: priceType
+          }
+          console.log('🔍 Set price type for option', optionIndex, ':', priceType)
+        }
+      } else if (rowLabel.includes('maximum price') || rowLabel.includes('max price') || rowLabel.includes('maximumprice')) {
+        // This is maximum price information
+        const option = options[optionIndex]
+        if (option && cellText) {
+          const numberMatches = cellText.match(/\$?[\d,]+(?:\.\d+)?/g)
+          if (numberMatches && numberMatches.length > 0) {
+            const maxAmount = parseFloat(numberMatches[0].replace(/[$,]/g, ''))
+            option.price = {
+              ...option.price,
+              maxAmount
+            }
+            console.log('🔍 Set maximum price for option', optionIndex, ':', maxAmount)
+          }
+        }
+      } else if (rowLabel.includes('price amount') || rowLabel.includes('priceamount')) {
+        // This is the minimum/base price amount (for ranges)
+        const option = options[optionIndex]
+        if (option && cellText) {
+          const numberMatches = cellText.match(/\$?[\d,]+(?:\.\d+)?/g)
+          if (numberMatches && numberMatches.length > 0) {
+            const amount = parseFloat(numberMatches[0].replace(/[$,]/g, ''))
+            option.price = {
+              ...option.price,
+              amount
+            }
+            console.log('🔍 Set price amount for option', optionIndex, ':', amount)
+          }
+        }
+      } else if (rowLabel.includes('price') || rowLabel.includes('cost') || rowLabel.includes('$') || 
+          cellText.includes('$') || cellText.includes('€') || cellText.includes('£')) {
+        // This is pricing information
+        console.log('🔍 Detected pricing row - parsing price from:', JSON.stringify(cellText))
+        const option = options[optionIndex]
+        if (option) {
+          const parsedPrice = parsePriceFromText(cellText)
+          // Merge without clobbering a previously set non-default billing period
+          const keepExistingPeriod = option.price?.period !== 'mo' && parsedPrice.period === 'mo'
+          const merged = {
+            ...option.price,
+            ...parsedPrice,
+            // Only override type if current type is default 'custom' or if parsed type is more specific
+            type: option.price.type === 'custom' ? parsedPrice.type : option.price.type,
+            period: keepExistingPeriod ? option.price.period : parsedPrice.period,
+          }
+          // If final period isn't custom, ensure no stray customPeriod remains
+          if (merged.period !== 'custom' && 'customPeriod' in merged) {
+            delete (merged as { customPeriod?: string }).customPeriod
+          }
+          option.price = merged
+          console.log('🔍 Set price for option', optionIndex, ':', option.price)
+        }
+      } else if (rowLabel.includes('description') || rowLabel.includes('subtitle')) {
+        // This is a description
+        const option = options[optionIndex]
+        if (option) {
+          option.description = cellText
+        }
+      } else if (rowLabel.includes('badge') || rowLabel.includes('popular') || rowLabel.includes('recommended')) {
+        // This is badge information
+        const option = options[optionIndex]
+        if (cellText && cellText.toLowerCase() !== 'none' && cellText !== '-' && option) {
+          option.badge = { text: cellText }
+        }
+      } else if (rowLabel.includes('billing period') || rowLabel.includes('billingperiod') || 
+                 rowLabel.includes('payment period') || rowLabel.includes('paymentperiod') ||
+                 rowLabel.includes('billing frequency') || rowLabel.includes('billingfrequency') ||
+                 (rowLabel.includes('billing') && rowLabel.includes('period')) ||
+                 (rowLabel.includes('payment') && rowLabel.includes('period'))) {
+        // This is billing period information
+        const option = options[optionIndex]
+        if (option && cellText) {
+          // Parse billing period from cell text
+          let period: 'mo' | 'yr' | 'once' | 'custom' = 'mo'
+          let customPeriod: string | undefined
+          
+          const lowerText = cellText.toLowerCase()
+          if (lowerText.includes('year') || lowerText.includes('annual') || lowerText.includes('yearly')) {
+            period = 'yr'
+          } else if (lowerText.includes('month') || lowerText.includes('monthly')) {
+            period = 'mo'
+          } else if (lowerText.includes('once') || lowerText.includes('one-time') || lowerText.includes('onetime') || lowerText.includes('one time')) {
+            period = 'once'
+          } else {
+            // Only set customPeriod for truly custom periods
+            period = 'custom'
+            customPeriod = cellText
+          }
+          
+          // Update the existing price object with the billing period
+          const updatedPrice = {
+            ...option.price,
+            period
+          }
+          
+          // Only add customPeriod if it exists, otherwise ensure it's not in the object
+          if (customPeriod) {
+            updatedPrice.customPeriod = customPeriod
+          } else {
+            delete updatedPrice.customPeriod
+          }
+          
+          option.price = updatedPrice
+          console.log('🔍 Set billing period for option', optionIndex, ':', period, customPeriod ? `(${customPeriod})` : '')
+        }
+      } else if (rowLabel.includes('highlight') || rowLabel.includes('feature') || rowLabel.includes('includes')) {
+        // This is highlights/features information
+        const highlights = parseHighlights(cellText)
+        const option = options[optionIndex]
+        if (highlights && highlights.length > 0 && option) {
+          option.highlights = highlights
+        }
+      }
+    }
+  }
+  
+  console.log('🔍 Final pricing table options:', JSON.stringify(options, null, 2))
+  
+  return {
+    _type: 'pricingTable',
+    _key: genKey(),
+    options
   }
 }
 
@@ -571,37 +1091,50 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
           const table = element.table
           const tableRows = table?.tableRows || []
           if (tableRows.length > 0) {
-            const headerCells = tableRows[0]?.tableCells || []
-            const headers: SanityTableHeader[] = headerCells.map((cell) => ({
-              _key: genKey(),
-              text: extractTextFromStructuralElements(cell.content),
-              alignment: mapAlignment(firstParagraphAlignment(cell.content))
-            }))
-            const rows: SanityTableRow[] = tableRows.slice(1).map((row) => ({
-              _key: genKey(),
-              cells: (row.tableCells || []).map((cell) => {
-                console.log('🔍 Processing table cell - calling extractPortableTextFromStructuralElements')
-                const portableTextData = extractPortableTextFromStructuralElements(cell.content, doc)
-                if (portableTextData.blocks.length > 0) {
-                  return {
-                    _key: genKey(),
-                    content: portableTextData.blocks
+            // Check if this is a pricing table
+            if (isPricingTable(table)) {
+              console.log('🔍 PRICING TABLE DETECTED - converting to pricingTable module')
+              const pricingTableNode = convertPricingTable(table, doc)
+              blocks.push(pricingTableNode)
+            } else if (isCalloutModule(table)) {
+              console.log('🔍 CALLOUT MODULE DETECTED - converting to callout module')
+              const calloutNode = convertCalloutModule(table, doc)
+              blocks.push(calloutNode)
+            } else {
+              // Regular table processing
+              const headerCells = tableRows[0]?.tableCells || []
+              const headers: SanityTableHeader[] = headerCells.map((cell) => ({
+                _key: genKey(),
+                text: extractTextFromStructuralElements(cell.content),
+                alignment: mapAlignment(firstParagraphAlignment(cell.content))
+              }))
+              const rows: SanityTableRow[] = tableRows.slice(1).map((row) => ({
+                _key: genKey(),
+                cells: (row.tableCells || []).map((cell) => {
+                  console.log('🔍 Processing table cell - calling extractPortableTextFromStructuralElements')
+                  const portableTextData = extractPortableTextFromStructuralElements(cell.content, doc)
+                  if (portableTextData.blocks.length > 0) {
+                    return {
+                      _key: genKey(),
+                      content: portableTextData.blocks
+                    }
+                  } else {
+                    return { 
+                      _key: genKey(),
+                      content: [] 
+                    }
                   }
-                } else {
-                  return { 
-                    _key: genKey(),
-                    content: [] 
-                  }
-                }
-              }),
-            }))
-            const tableNode: SanityTableNode = {
-              _type: 'table',
-              caption: undefined,
-              headers,
-              rows,
+                }),
+              }))
+              const tableNode: SanityTableNode = {
+                _type: 'table',
+                _key: genKey(),
+                caption: undefined,
+                headers,
+                rows,
+              }
+              blocks.push(tableNode)
             }
-            blocks.push(tableNode)
           }
         }
       })
@@ -760,37 +1293,50 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
           const table = element.table
       const tableRows = table?.tableRows || []
       if (tableRows.length > 0) {
-        const headerCells = tableRows[0]?.tableCells || []
-        const headers: SanityTableHeader[] = headerCells.map((cell) => ({
-          _key: genKey(),
-          text: extractTextFromStructuralElements(cell.content),
-          alignment: mapAlignment(firstParagraphAlignment(cell.content))
-        }))
-        const rows: SanityTableRow[] = tableRows.slice(1).map((row) => ({
-          _key: genKey(),
-          cells: (row.tableCells || []).map((cell) => {
-            console.log('🔍 Fallback: Processing table cell - calling extractPortableTextFromStructuralElements')
-            const portableTextData = extractPortableTextFromStructuralElements(cell.content, doc)
-            if (portableTextData.blocks.length > 0) {
-              return {
-                _key: genKey(),
-                content: portableTextData.blocks
+        // Check if this is a pricing table
+        if (isPricingTable(table)) {
+          console.log('🔍 FALLBACK: PRICING TABLE DETECTED - converting to pricingTable module')
+          const pricingTableNode = convertPricingTable(table, doc)
+          blocks.push(pricingTableNode)
+        } else if (isCalloutModule(table)) {
+          console.log('🔍 FALLBACK: CALLOUT MODULE DETECTED - converting to callout module')
+          const calloutNode = convertCalloutModule(table, doc)
+          blocks.push(calloutNode)
+        } else {
+          // Regular table processing
+          const headerCells = tableRows[0]?.tableCells || []
+          const headers: SanityTableHeader[] = headerCells.map((cell) => ({
+            _key: genKey(),
+            text: extractTextFromStructuralElements(cell.content),
+            alignment: mapAlignment(firstParagraphAlignment(cell.content))
+          }))
+          const rows: SanityTableRow[] = tableRows.slice(1).map((row) => ({
+            _key: genKey(),
+            cells: (row.tableCells || []).map((cell) => {
+              console.log('🔍 Fallback: Processing table cell - calling extractPortableTextFromStructuralElements')
+              const portableTextData = extractPortableTextFromStructuralElements(cell.content, doc)
+              if (portableTextData.blocks.length > 0) {
+                return {
+                  _key: genKey(),
+                  content: portableTextData.blocks
+                }
+              } else {
+                return { 
+                  _key: genKey(),
+                  content: [] 
+                }
               }
-            } else {
-              return { 
-                _key: genKey(),
-                content: [] 
-              }
-            }
-          }),
-        }))
-        const tableNode: SanityTableNode = {
-          _type: 'table',
-          caption: undefined,
-          headers,
-          rows,
+            }),
+          }))
+          const tableNode: SanityTableNode = {
+            _type: 'table',
+            _key: genKey(),
+            caption: undefined,
+            headers,
+            rows,
+          }
+          blocks.push(tableNode)
         }
-        blocks.push(tableNode)
       }
     }
   })
