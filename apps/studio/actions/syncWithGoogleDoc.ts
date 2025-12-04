@@ -414,6 +414,47 @@ function convertCalloutModule(table: GoogleDocsTable, doc: GoogleDocsDocument): 
   return calloutNode
 }
 
+// Extract option names from a pricing table (used by scope table to get real option names)
+function extractPricingOptionNames(table: GoogleDocsTable): string[] {
+  const tableRows = table?.tableRows || []
+  if (tableRows.length < 2) return []
+  
+  const headerRow = tableRows[0]
+  const headerCells = headerRow?.tableCells || []
+  const columnMap: Record<number, string> = {}
+  
+  for (let i = 0; i < headerCells.length; i++) {
+    const headerText = extractTextFromStructuralElements(headerCells[i]?.content).trim().toLowerCase()
+    columnMap[i] = headerText
+  }
+  
+  // Find the "Option Name" column index
+  const optionNameColIndex = Object.entries(columnMap).find(([_, name]) => 
+    name.includes('option name') || name.includes('optionname')
+  )?.[0]
+  
+  if (optionNameColIndex === undefined) return []
+  
+  const colIdx = parseInt(optionNameColIndex, 10)
+  const optionNames: string[] = []
+  
+  // Extract option names from data rows
+  for (let rowIndex = 1; rowIndex < tableRows.length; rowIndex++) {
+    const row = tableRows[rowIndex]
+    const cells = row?.tableCells || []
+    const cell = cells[colIdx]
+    if (cell) {
+      const name = extractTextFromStructuralElements(cell.content).trim()
+      if (name) {
+        optionNames.push(name)
+      }
+    }
+  }
+  
+  console.log('🔍 Extracted pricing option names:', optionNames)
+  return optionNames
+}
+
 // Check if a table is a scope table by looking for "Scope Item" column header
 // Format: Group Name | Scope Item | Description | Tooltip | Option 1 Status | Option 1 Custom Text | ...
 function isScopeTable(table: GoogleDocsTable): boolean {
@@ -446,7 +487,8 @@ function isScopeTable(table: GoogleDocsTable): boolean {
 
 // Convert Google Docs scope table to Sanity scope table
 // Format: Group Name | Scope Item | Description | Tooltip | Option 1 Status | Option 1 Custom Text | Option 2 Status | ...
-function convertScopeTable(table: GoogleDocsTable, doc: GoogleDocsDocument): ScopeTableNode {
+// pricingOptionNames: optional array of option names from the pricing table (e.g., ["Good", "Better", "Best"])
+function convertScopeTable(table: GoogleDocsTable, doc: GoogleDocsDocument, pricingOptionNames?: string[]): ScopeTableNode {
   const tableRows = table?.tableRows || []
   console.log('🔍 Converting scope table with', tableRows.length, 'rows')
   
@@ -465,8 +507,8 @@ function convertScopeTable(table: GoogleDocsTable, doc: GoogleDocsDocument): Sco
   const headerCells = headerRow?.tableCells || []
   const columnMap: Record<number, string> = {}
   
-  // Detect option names from "Option N Status" columns
-  const optionNames: string[] = []
+  // Count how many options we have from "Option N Status" columns
+  let optionCount = 0
   
   for (let i = 0; i < headerCells.length; i++) {
     const headerText = extractTextFromStructuralElements(headerCells[i]?.content).trim()
@@ -478,13 +520,24 @@ function convertScopeTable(table: GoogleDocsTable, doc: GoogleDocsDocument): Sco
     const optionMatch = headerTextLower.match(/option\s*(\d+)\s*status/i)
     if (optionMatch && optionMatch[1]) {
       const optionNum = parseInt(optionMatch[1], 10)
-      while (optionNames.length < optionNum) {
-        optionNames.push(`Option ${optionNames.length + 1}`)
+      if (optionNum > optionCount) {
+        optionCount = optionNum
       }
     }
   }
   
-  console.log('🔍 Detected options:', optionNames)
+  // Use pricing option names if provided, otherwise fall back to generic names
+  const optionNames: string[] = []
+  for (let i = 0; i < optionCount; i++) {
+    const pricingName = pricingOptionNames?.[i]
+    if (pricingName) {
+      optionNames.push(pricingName)
+    } else {
+      optionNames.push(`Option ${i + 1}`)
+    }
+  }
+  
+  console.log('🔍 Using option names:', optionNames, '(from pricing table:', !!pricingOptionNames, ')')
   
   // Process data rows (skip header row)
   // Group items by their Group Name column
@@ -1281,6 +1334,25 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
     const flatTabs = flattenTabs(doc.tabs)
     console.log('Flattened tabs:', flatTabs.length)
     
+    // First pass: find pricing tables and extract option names
+    let pricingOptionNames: string[] = []
+    for (const tab of flatTabs) {
+      const body = tab.documentTab?.body
+      if (!body?.content) continue
+      
+      for (const element of body.content) {
+        if (element.table && isPricingTable(element.table)) {
+          const names = extractPricingOptionNames(element.table)
+          if (names.length > 0) {
+            pricingOptionNames = names
+            console.log('🔍 Found pricing option names from pricing table:', pricingOptionNames)
+            break
+          }
+        }
+      }
+      if (pricingOptionNames.length > 0) break
+    }
+    
     const sanityTabs: Array<{ title: string; content: PTContent[] }> = []
     for (const tab of flatTabs) {
       console.log('🔍 Processing tab:', tab.tabProperties?.title)
@@ -1451,7 +1523,7 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
               blocks.push(pricingTableNode)
             } else if (isScopeTable(table)) {
               console.log('🔍 SCOPE TABLE DETECTED - converting to scopeTable module')
-              const scopeTableNode = convertScopeTable(table, doc)
+              const scopeTableNode = convertScopeTable(table, doc, pricingOptionNames)
               blocks.push(scopeTableNode)
             } else if (isGanttChart(table)) {
               console.log('🔍 GANTT CHART DETECTED - converting to ganttChart module')
@@ -1512,6 +1584,19 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
   console.log('No tabs found; falling back to legacy parsing')
   if (!doc.body?.content) {
     return { title: doc.title || doc.documentId || 'Google Document', tabs: [] }
+  }
+  
+  // First pass: find pricing tables and extract option names
+  let fallbackPricingOptionNames: string[] = []
+  for (const element of doc.body.content) {
+    if (element.table && isPricingTable(element.table)) {
+      const names = extractPricingOptionNames(element.table)
+      if (names.length > 0) {
+        fallbackPricingOptionNames = names
+        console.log('🔍 FALLBACK: Found pricing option names from pricing table:', fallbackPricingOptionNames)
+        break
+      }
+    }
   }
   
   const blocks: PTContent[] = []
@@ -1661,7 +1746,7 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
           blocks.push(pricingTableNode)
         } else if (isScopeTable(table)) {
           console.log('🔍 FALLBACK: SCOPE TABLE DETECTED - converting to scopeTable module')
-          const scopeTableNode = convertScopeTable(table, doc)
+          const scopeTableNode = convertScopeTable(table, doc, fallbackPricingOptionNames)
           blocks.push(scopeTableNode)
         } else if (isGanttChart(table)) {
           console.log('🔍 FALLBACK: GANTT CHART DETECTED - converting to ganttChart module')

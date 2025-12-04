@@ -93,7 +93,6 @@ interface ProposalContentProps {
   proposalSlug: string
   activeTabIndex: number
   company?: Company
-  googleDocUrl?: string
   calendarLink?: string
   preparedBy?: Person
 }
@@ -103,7 +102,6 @@ export default function ProposalContent({
   proposalSlug,
   activeTabIndex,
   company,
-  googleDocUrl,
   calendarLink,
   preparedBy
 }: ProposalContentProps) {
@@ -572,33 +570,6 @@ export default function ProposalContent({
               </div>
             )}
             
-            {/* Open in Google Doc button - positioned at bottom */}
-            {googleDocUrl && (
-              <div className="mt-8 pt-6 border-t border-gray-700">
-                <a
-                  href={googleDocUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => {
-                    try {
-                      trackEvent("Proposal Google Doc Opened")
-                    } catch (err) {
-                      console.warn("Segment tracking failed", err)
-                    }
-                  }}
-                  className="flex items-center justify-center w-full px-3 py-2 text-sm font-medium text-black bg-white rounded-md hover:bg-gray-100 transition-colors duration-200"
-                >
-                  <Image 
-                    src="/Google Docs Logo.svg" 
-                    alt="Google Docs" 
-                    width={16} 
-                    height={16} 
-                    className="mr-2 w-4 h-4"
-                  />
-                  Open in Google Doc
-                </a>
-              </div>
-            )}
 
                       </div>
         </div>
