@@ -63,7 +63,56 @@ type CalloutNode = {
   variant?: 'info' | 'warning' | 'success' | 'error'
 }
 
-type PTContent = PortableTextBlock | SanityTableNode | PricingTableNode | CalloutNode
+// Scope table types
+type ScopeTableOptionAvailability = {
+  _key: string
+  optionIndex: number
+  included: 'included' | 'limited' | 'not_included' | 'custom'
+  customText?: string
+}
+
+type ScopeTableItem = {
+  _key: string
+  item: string
+  description?: string
+  tooltip?: string
+  optionAvailability: ScopeTableOptionAvailability[]
+}
+
+type ScopeTableGroup = {
+  _key: string
+  groupName: string
+  items: ScopeTableItem[]
+}
+
+type ScopeTableNode = {
+  _type: 'scopeTable'
+  _key: string
+  options: string[]
+  scopeGroups: ScopeTableGroup[]
+}
+
+// Gantt chart types
+type GanttChartTask = {
+  _key: string
+  name: string
+  startDate: string
+  endDate: string
+  progress?: number
+  dependencies?: string
+}
+
+type GanttChartNode = {
+  _type: 'ganttChart'
+  _key: string
+  title?: string
+  tasks: GanttChartTask[]
+  viewMode?: 'Quarter Day' | 'Half Day' | 'Day' | 'Week' | 'Month' | 'Year'
+  showWeekends?: boolean
+  showProgress?: boolean
+}
+
+type PTContent = PortableTextBlock | SanityTableNode | PricingTableNode | CalloutNode | ScopeTableNode | GanttChartNode
 
 interface DocumentActionProps {
   id: string
@@ -253,21 +302,32 @@ function mapAlignment(alignment?: string): 'left' | 'center' | 'right' {
   }
 }
 
-// Check if a table is a pricing table by looking for the {{ pricingTable.module }} marker
+// Check if a table is a pricing table by looking for "Option Name" as the first column header
 function isPricingTable(table: GoogleDocsTable): boolean {
   const tableRows = table?.tableRows || []
-  if (tableRows.length === 0) return false
+  if (tableRows.length < 2) return false // Need at least header row + 1 data row
   
-  // Check first row, first cell for the pricing table marker
+  // Check first row for pricing table column headers
   const firstRow = tableRows[0]
-  const firstCell = firstRow?.tableCells?.[0]
-  if (!firstCell?.content) return false
+  const cells = firstRow?.tableCells || []
+  if (cells.length < 3) return false // Need at least Option Name, Description, Price Type
   
-  const cellText = extractTextFromStructuralElements(firstCell.content).trim()
-  console.log('🔍 Checking first cell text for pricing table marker:', cellText)
+  // Extract text from first few cells to check for pricing table structure
+  const firstCellText = extractTextFromStructuralElements(cells[0]?.content).trim().toLowerCase()
+  const secondCellText = extractTextFromStructuralElements(cells[1]?.content).trim().toLowerCase()
+  const thirdCellText = extractTextFromStructuralElements(cells[2]?.content).trim().toLowerCase()
   
-  // Look for the pricing table module marker
-  return cellText.includes('{{ pricingTable.module }}') || cellText.includes('{{pricingTable.module}}')
+  console.log('🔍 Checking table headers for pricing table:', { firstCellText, secondCellText, thirdCellText })
+  
+  // Detect pricing table by checking for expected column headers
+  const hasOptionName = firstCellText.includes('option name') || firstCellText.includes('optionname')
+  const hasDescription = secondCellText.includes('description')
+  const hasPriceType = thirdCellText.includes('price type') || thirdCellText.includes('pricetype')
+  
+  const isPricing = hasOptionName && hasDescription && hasPriceType
+  console.log('🔍 Is pricing table:', isPricing)
+  
+  return isPricing
 }
 
 // Check if a table is a callout module
@@ -352,6 +412,326 @@ function convertCalloutModule(table: GoogleDocsTable, doc: GoogleDocsDocument): 
   console.log('🔍 Final callout module:', JSON.stringify(calloutNode, null, 2))
   
   return calloutNode
+}
+
+// Check if a table is a scope table by looking for "Scope Item" column header
+// Format: Group Name | Scope Item | Description | Tooltip | Option 1 Status | Option 1 Custom Text | ...
+function isScopeTable(table: GoogleDocsTable): boolean {
+  const tableRows = table?.tableRows || []
+  if (tableRows.length < 2) return false // Need at least header row + 1 data row
+  
+  // Check first row for scope table column headers
+  const firstRow = tableRows[0]
+  const cells = firstRow?.tableCells || []
+  if (cells.length < 4) return false // Need at least Group Name, Scope Item, Description, and one option column
+  
+  // Extract text from all cells to check for scope table structure
+  const cellTexts = cells.map(cell => extractTextFromStructuralElements(cell?.content).trim().toLowerCase())
+  
+  console.log('🔍 Checking table headers for scope table:', cellTexts)
+  
+  // Detect scope table by checking for expected column headers
+  // Format: Group Name | Scope Item | Description | Tooltip | Option 1 Status | ...
+  const hasGroupName = cellTexts[0]?.includes('group') || cellTexts[0]?.includes('category')
+  const hasScopeItem = cellTexts[1]?.includes('scope item') || cellTexts[1]?.includes('scopeitem')
+  const hasDescription = cellTexts[2]?.includes('description')
+  const hasTooltip = cellTexts[3]?.includes('tooltip')
+  const hasOptionStatus = cellTexts.some(text => text.includes('option') && text.includes('status'))
+  
+  const isScope = Boolean(hasGroupName && hasScopeItem && hasDescription && hasTooltip && hasOptionStatus)
+  console.log('🔍 Is scope table:', isScope, { hasGroupName, hasScopeItem, hasDescription, hasTooltip, hasOptionStatus })
+  
+  return isScope
+}
+
+// Convert Google Docs scope table to Sanity scope table
+// Format: Group Name | Scope Item | Description | Tooltip | Option 1 Status | Option 1 Custom Text | Option 2 Status | ...
+function convertScopeTable(table: GoogleDocsTable, doc: GoogleDocsDocument): ScopeTableNode {
+  const tableRows = table?.tableRows || []
+  console.log('🔍 Converting scope table with', tableRows.length, 'rows')
+  
+  if (tableRows.length < 2) {
+    console.warn('Scope table has insufficient rows, creating empty scope table')
+    return {
+      _type: 'scopeTable',
+      _key: genKey(),
+      options: [],
+      scopeGroups: []
+    }
+  }
+  
+  // First row contains column headers - build a map of column index to field name
+  const headerRow = tableRows[0]
+  const headerCells = headerRow?.tableCells || []
+  const columnMap: Record<number, string> = {}
+  
+  // Detect option names from "Option N Status" columns
+  const optionNames: string[] = []
+  
+  for (let i = 0; i < headerCells.length; i++) {
+    const headerText = extractTextFromStructuralElements(headerCells[i]?.content).trim()
+    const headerTextLower = headerText.toLowerCase()
+    columnMap[i] = headerTextLower
+    console.log(`🔍 Scope Column ${i}: "${headerText}"`)
+    
+    // Extract option numbers from "option N status" columns
+    const optionMatch = headerTextLower.match(/option\s*(\d+)\s*status/i)
+    if (optionMatch && optionMatch[1]) {
+      const optionNum = parseInt(optionMatch[1], 10)
+      while (optionNames.length < optionNum) {
+        optionNames.push(`Option ${optionNames.length + 1}`)
+      }
+    }
+  }
+  
+  console.log('🔍 Detected options:', optionNames)
+  
+  // Process data rows (skip header row)
+  // Group items by their Group Name column
+  const groupsMap: Record<string, ScopeTableItem[]> = {}
+  
+  for (let rowIndex = 1; rowIndex < tableRows.length; rowIndex++) {
+    const row = tableRows[rowIndex]
+    const cells = row?.tableCells || []
+    
+    // Initialize scope item
+    const item: ScopeTableItem = {
+      _key: genKey(),
+      item: '',
+      optionAvailability: []
+    }
+    
+    // Track group name for this row
+    let groupName = 'General'
+    
+    // Collect option availability from columns
+    const optionAvailability: ScopeTableOptionAvailability[] = []
+    
+    // Process each cell in the row
+    for (let colIndex = 0; colIndex < cells.length; colIndex++) {
+      const cell = cells[colIndex]
+      const cellText = extractTextFromStructuralElements(cell?.content).trim()
+      const columnName = columnMap[colIndex] || ''
+      
+      console.log(`🔍 Scope Row ${rowIndex}, Col ${colIndex} (${columnName}): "${cellText}"`)
+      
+      // Map column to item field
+      if (columnName.includes('group') || columnName.includes('category')) {
+        if (cellText) groupName = cellText
+      } else if (columnName.includes('scope item') || columnName.includes('scopeitem')) {
+        item.item = cellText
+      } else if (columnName === 'description') {
+        if (cellText) item.description = cellText
+      } else if (columnName === 'tooltip') {
+        if (cellText) item.tooltip = cellText
+      } else if (columnName.includes('option') && columnName.includes('status')) {
+        // Handle "option N status" columns
+        const optionMatch = columnName.match(/option\s*(\d+)\s*status/i)
+        if (optionMatch && optionMatch[1]) {
+          const optionIndex = parseInt(optionMatch[1], 10) - 1 // 0-indexed
+          
+          // Parse status value
+          let included: 'included' | 'limited' | 'not_included' | 'custom' = 'not_included'
+          const lowerText = cellText.toLowerCase()
+          
+          if (lowerText === 'included' || lowerText === 'yes' || lowerText === '✓' || lowerText === 'true') {
+            included = 'included'
+          } else if (lowerText === 'limited' || lowerText === 'partial') {
+            included = 'limited'
+          } else if (lowerText === 'not_included' || lowerText === 'no' || lowerText === '✗' || lowerText === 'false' || lowerText === '') {
+            included = 'not_included'
+          } else if (cellText) {
+            // Any other non-empty text is treated as custom
+            included = 'custom'
+          }
+          
+          const availability: ScopeTableOptionAvailability = {
+            _key: genKey(),
+            optionIndex,
+            included
+          }
+          
+          // Look for corresponding custom text column
+          const customTextColIndex = Object.entries(columnMap).find(([idx, name]) => 
+            name.includes(`option`) && name.includes(`${optionIndex + 1}`) && name.includes('custom text')
+          )?.[0]
+          
+          if (customTextColIndex !== undefined) {
+            const customTextCell = cells[parseInt(customTextColIndex, 10)]
+            const customText = extractTextFromStructuralElements(customTextCell?.content).trim()
+            if (customText) {
+              availability.customText = customText
+              // If there's custom text, mark as custom status
+              if (included !== 'included' && included !== 'limited') {
+                availability.included = 'custom'
+              }
+            }
+          }
+          
+          optionAvailability[optionIndex] = availability
+        }
+      }
+    }
+    
+    // Fill in any missing option availability
+    for (let i = 0; i < optionNames.length; i++) {
+      if (!optionAvailability[i]) {
+        optionAvailability[i] = {
+          _key: genKey(),
+          optionIndex: i,
+          included: 'not_included'
+        }
+      }
+    }
+    
+    item.optionAvailability = optionAvailability.filter(Boolean)
+    
+    // Only add item if it has a name
+    if (item.item) {
+      // Add to the appropriate group
+      if (!groupsMap[groupName]) {
+        groupsMap[groupName] = []
+      }
+      groupsMap[groupName]!.push(item)
+      console.log('🔍 Added scope item to group', groupName, ':', JSON.stringify(item, null, 2))
+    }
+  }
+  
+  // Convert groupsMap to scopeGroups array
+  const scopeGroups: ScopeTableGroup[] = Object.entries(groupsMap).map(([name, items]) => ({
+    _key: genKey(),
+    groupName: name,
+    items
+  }))
+  
+  console.log('🔍 Final scope table:', JSON.stringify({ options: optionNames, scopeGroups }, null, 2))
+  
+  return {
+    _type: 'scopeTable',
+    _key: genKey(),
+    options: optionNames,
+    scopeGroups
+  }
+}
+
+// Check if a table is a Gantt chart by looking for "Task Name", "Start Date", "End Date" columns
+function isGanttChart(table: GoogleDocsTable): boolean {
+  const tableRows = table?.tableRows || []
+  if (tableRows.length < 2) return false // Need at least header row + 1 data row
+  
+  // Check first row for Gantt chart column headers
+  const firstRow = tableRows[0]
+  const cells = firstRow?.tableCells || []
+  if (cells.length < 3) return false // Need at least Task Name, Start Date, End Date
+  
+  // Extract text from first few cells to check for Gantt chart structure
+  const firstCellText = extractTextFromStructuralElements(cells[0]?.content).trim().toLowerCase()
+  const secondCellText = extractTextFromStructuralElements(cells[1]?.content).trim().toLowerCase()
+  const thirdCellText = extractTextFromStructuralElements(cells[2]?.content).trim().toLowerCase()
+  
+  console.log('🔍 Checking table headers for Gantt chart:', { firstCellText, secondCellText, thirdCellText })
+  
+  // Detect Gantt chart by checking for expected column headers
+  const hasTaskName = firstCellText.includes('task name') || firstCellText.includes('taskname') || firstCellText.includes('task')
+  const hasStartDate = secondCellText.includes('start date') || secondCellText.includes('startdate') || secondCellText.includes('start')
+  const hasEndDate = thirdCellText.includes('end date') || thirdCellText.includes('enddate') || thirdCellText.includes('end')
+  
+  const isGantt = hasTaskName && hasStartDate && hasEndDate
+  console.log('🔍 Is Gantt chart:', isGantt)
+  
+  return isGantt
+}
+
+// Convert Google Docs Gantt chart table to Sanity Gantt chart
+function convertGanttChart(table: GoogleDocsTable, doc: GoogleDocsDocument): GanttChartNode {
+  const tableRows = table?.tableRows || []
+  console.log('🔍 Converting Gantt chart with', tableRows.length, 'rows')
+  
+  if (tableRows.length < 2) {
+    console.warn('Gantt chart has insufficient rows, creating empty Gantt chart')
+    return {
+      _type: 'ganttChart',
+      _key: genKey(),
+      tasks: [],
+      viewMode: 'Week',
+      showWeekends: false,
+      showProgress: true
+    }
+  }
+  
+  // First row contains column headers - build a map of column index to field name
+  const headerRow = tableRows[0]
+  const headerCells = headerRow?.tableCells || []
+  const columnMap: Record<number, string> = {}
+  
+  for (let i = 0; i < headerCells.length; i++) {
+    const headerText = extractTextFromStructuralElements(headerCells[i]?.content).trim().toLowerCase()
+    columnMap[i] = headerText
+    console.log(`🔍 Gantt Column ${i}: "${headerText}"`)
+  }
+  
+  // Process data rows (skip header row)
+  const tasks: GanttChartTask[] = []
+  
+  for (let rowIndex = 1; rowIndex < tableRows.length; rowIndex++) {
+    const row = tableRows[rowIndex]
+    const cells = row?.tableCells || []
+    
+    // Initialize task
+    const task: GanttChartTask = {
+      _key: genKey(),
+      name: '',
+      startDate: '',
+      endDate: ''
+    }
+    
+    // Process each cell in the row
+    for (let colIndex = 0; colIndex < cells.length; colIndex++) {
+      const cell = cells[colIndex]
+      const cellText = extractTextFromStructuralElements(cell?.content).trim()
+      const columnName = columnMap[colIndex] || ''
+      
+      if (!cellText) continue
+      
+      console.log(`🔍 Gantt Row ${rowIndex}, Col ${colIndex} (${columnName}): "${cellText}"`)
+      
+      // Map column to task field
+      if (columnName.includes('task name') || columnName.includes('taskname') || columnName === 'task') {
+        task.name = cellText
+      } else if (columnName.includes('start date') || columnName.includes('startdate') || columnName === 'start') {
+        // Parse date - expect YYYY-MM-DD format
+        task.startDate = cellText
+      } else if (columnName.includes('end date') || columnName.includes('enddate') || columnName === 'end') {
+        // Parse date - expect YYYY-MM-DD format
+        task.endDate = cellText
+      } else if (columnName.includes('progress')) {
+        // Parse progress percentage
+        const progressMatch = cellText.match(/(\d+)/)
+        if (progressMatch && progressMatch[1]) {
+          task.progress = parseInt(progressMatch[1], 10)
+        }
+      } else if (columnName.includes('dependencies') || columnName.includes('depends')) {
+        task.dependencies = cellText
+      }
+    }
+    
+    // Only add task if it has a name and dates
+    if (task.name && task.startDate && task.endDate) {
+      tasks.push(task)
+      console.log('🔍 Added Gantt task:', JSON.stringify(task, null, 2))
+    }
+  }
+  
+  console.log('🔍 Final Gantt chart tasks:', JSON.stringify(tasks, null, 2))
+  
+  return {
+    _type: 'ganttChart',
+    _key: genKey(),
+    tasks,
+    viewMode: 'Week',
+    showWeekends: false,
+    showProgress: true
+  }
 }
 
 // Parse pricing information from a text string
@@ -522,11 +902,12 @@ function parseHighlights(highlightText: string): PricingTableOption['highlights'
 }
 
 // Convert Google Docs pricing table to Sanity pricing table
+// New horizontal structure: each row is a pricing option, columns are fields
 function convertPricingTable(table: GoogleDocsTable, doc: GoogleDocsDocument): PricingTableNode {
   const tableRows = table?.tableRows || []
   console.log('🔍 Converting pricing table with', tableRows.length, 'rows')
   
-  if (tableRows.length < 3) {
+  if (tableRows.length < 2) {
     console.warn('Pricing table has insufficient rows, creating empty pricing table')
     return {
       _type: 'pricingTable',
@@ -535,192 +916,164 @@ function convertPricingTable(table: GoogleDocsTable, doc: GoogleDocsDocument): P
     }
   }
   
-  // Skip first row (contains the marker)
-  // Second row contains plan names
-  const headerRow = tableRows[1]
-  const planCells = headerRow?.tableCells || []
+  // First row contains column headers - build a map of column index to field name
+  const headerRow = tableRows[0]
+  const headerCells = headerRow?.tableCells || []
+  const columnMap: Record<number, string> = {}
   
-  // Skip first cell if it's a label column (like "Option Name")
-  const planNames: string[] = []
-  const startIndex = planCells.length > 2 ? 1 : 0 // Skip first column if it's a label
-  
-  for (let i = startIndex; i < planCells.length; i++) {
-    const cell = planCells[i]
-    const planName = extractTextFromStructuralElements(cell?.content).trim()
-    if (planName) {
-      planNames.push(planName)
-    }
+  for (let i = 0; i < headerCells.length; i++) {
+    const headerText = extractTextFromStructuralElements(headerCells[i]?.content).trim().toLowerCase()
+    columnMap[i] = headerText
+    console.log(`🔍 Column ${i}: "${headerText}"`)
   }
   
-  console.log('🔍 Found plan names:', planNames)
+  // Process data rows (skip header row)
+  const options: PricingTableOption[] = []
   
-  // Initialize options for each plan
-  const options: PricingTableOption[] = planNames.map(name => ({
-    _key: genKey(),
-    name,
-    price: {
-      type: 'custom' as const,
-      customText: 'Contact for pricing',
-      currency: 'USD' as const,
-      period: 'mo' as const
-    }
-  }))
-  
-  // Process remaining rows to extract pricing and features
-  for (let rowIndex = 2; rowIndex < tableRows.length; rowIndex++) {
+  for (let rowIndex = 1; rowIndex < tableRows.length; rowIndex++) {
     const row = tableRows[rowIndex]
     const cells = row?.tableCells || []
     
-    if (cells.length === 0) continue
+    // Initialize option with defaults
+    const option: PricingTableOption = {
+      _key: genKey(),
+      name: '',
+      price: {
+        type: 'single',
+        currency: 'USD',
+        period: 'mo'
+      }
+    }
     
-    // Get the row label from first cell
-    const rowLabel = extractTextFromStructuralElements(cells[0]?.content).trim().toLowerCase()
-    console.log('🔍 Processing row:', rowLabel)
+    // Collect highlights from multiple columns
+    const highlights: Array<{ _key: string; text: string; icon: 'check' | 'lightning' | 'rocket' | 'chart' | 'lock' | 'star' }> = []
     
-    // Process each plan column
-    for (let colIndex = startIndex; colIndex < cells.length && colIndex - startIndex < options.length; colIndex++) {
+    // Process each cell in the row
+    for (let colIndex = 0; colIndex < cells.length; colIndex++) {
       const cell = cells[colIndex]
       const cellText = extractTextFromStructuralElements(cell?.content).trim()
-      const optionIndex = colIndex - startIndex
+      const columnName = columnMap[colIndex] || ''
       
-      if (!cellText || optionIndex >= options.length) continue
+      if (!cellText) continue
       
-      // Determine what type of data this row contains
-      console.log('🔍 Processing cell - Row label:', rowLabel, 'Cell text:', JSON.stringify(cellText), 'Option index:', optionIndex)
+      console.log(`🔍 Row ${rowIndex}, Col ${colIndex} (${columnName}): "${cellText}"`)
       
-      if (rowLabel.includes('price type') || rowLabel.includes('pricetype')) {
-        // This is price type information - determine the type from cell text
-        const option = options[optionIndex]
-        if (option && cellText) {
-          const lowerText = cellText.toLowerCase()
-          let priceType: 'single' | 'range' | 'starting_from' | 'custom' = 'single'
-          
-          if (lowerText.includes('range') || lowerText.includes('price range')) {
-            priceType = 'range'
-          } else if (lowerText.includes('starting') || lowerText.includes('from')) {
-            priceType = 'starting_from'
-          } else if (lowerText.includes('custom') || lowerText.includes('contact')) {
-            priceType = 'custom'
-          }
-          
-          option.price = {
-            ...option.price,
-            type: priceType
-          }
-          console.log('🔍 Set price type for option', optionIndex, ':', priceType)
+      // Map column to option field
+      if (columnName.includes('option name') || columnName.includes('optionname')) {
+        option.name = cellText
+      } else if (columnName === 'description') {
+        option.description = cellText
+      } else if (columnName.includes('price type') || columnName.includes('pricetype')) {
+        const lowerText = cellText.toLowerCase()
+        if (lowerText === 'range' || lowerText.includes('range')) {
+          option.price.type = 'range'
+        } else if (lowerText === 'starting_from' || lowerText.includes('starting')) {
+          option.price.type = 'starting_from'
+        } else if (lowerText === 'custom' || lowerText.includes('custom')) {
+          option.price.type = 'custom'
+        } else {
+          option.price.type = 'single'
         }
-      } else if (rowLabel.includes('maximum price') || rowLabel.includes('max price') || rowLabel.includes('maximumprice')) {
-        // This is maximum price information
-        const option = options[optionIndex]
-        if (option && cellText) {
-          const numberMatches = cellText.match(/\$?[\d,]+(?:\.\d+)?/g)
-          if (numberMatches && numberMatches.length > 0) {
-            const maxAmount = parseFloat(numberMatches[0].replace(/[$,]/g, ''))
-            option.price = {
-              ...option.price,
-              maxAmount
-            }
-            console.log('🔍 Set maximum price for option', optionIndex, ':', maxAmount)
-          }
+      } else if (columnName.includes('price amount') || columnName.includes('priceamount')) {
+        const amount = parseFloat(cellText.replace(/[$,]/g, ''))
+        if (!isNaN(amount)) {
+          option.price.amount = amount
         }
-      } else if (rowLabel.includes('price amount') || rowLabel.includes('priceamount')) {
-        // This is the minimum/base price amount (for ranges)
-        const option = options[optionIndex]
-        if (option && cellText) {
-          const numberMatches = cellText.match(/\$?[\d,]+(?:\.\d+)?/g)
-          if (numberMatches && numberMatches.length > 0) {
-            const amount = parseFloat(numberMatches[0].replace(/[$,]/g, ''))
-            option.price = {
-              ...option.price,
-              amount
-            }
-            console.log('🔍 Set price amount for option', optionIndex, ':', amount)
-          }
+      } else if (columnName.includes('max price') || columnName.includes('maxprice')) {
+        const maxAmount = parseFloat(cellText.replace(/[$,]/g, ''))
+        if (!isNaN(maxAmount)) {
+          option.price.maxAmount = maxAmount
         }
-      } else if (rowLabel.includes('price') || rowLabel.includes('cost') || rowLabel.includes('$') || 
-          cellText.includes('$') || cellText.includes('€') || cellText.includes('£')) {
-        // This is pricing information
-        console.log('🔍 Detected pricing row - parsing price from:', JSON.stringify(cellText))
-        const option = options[optionIndex]
-        if (option) {
-          const parsedPrice = parsePriceFromText(cellText)
-          // Merge without clobbering a previously set non-default billing period
-          const keepExistingPeriod = option.price?.period !== 'mo' && parsedPrice.period === 'mo'
-          const merged = {
-            ...option.price,
-            ...parsedPrice,
-            // Only override type if current type is default 'custom' or if parsed type is more specific
-            type: option.price.type === 'custom' ? parsedPrice.type : option.price.type,
-            period: keepExistingPeriod ? option.price.period : parsedPrice.period,
-          }
-          // If final period isn't custom, ensure no stray customPeriod remains
-          if (merged.period !== 'custom' && 'customPeriod' in merged) {
-            delete (merged as { customPeriod?: string }).customPeriod
-          }
-          option.price = merged
-          console.log('🔍 Set price for option', optionIndex, ':', option.price)
+      } else if (columnName.includes('custom price text') || columnName.includes('custompricetext')) {
+        option.price.customText = cellText
+      } else if (columnName === 'currency') {
+        const upperText = cellText.toUpperCase()
+        if (upperText === 'EUR' || upperText === '€') {
+          option.price.currency = 'EUR'
+        } else if (upperText === 'GBP' || upperText === '£') {
+          option.price.currency = 'GBP'
+        } else {
+          option.price.currency = 'USD'
         }
-      } else if (rowLabel.includes('description') || rowLabel.includes('subtitle')) {
-        // This is a description
-        const option = options[optionIndex]
-        if (option) {
-          option.description = cellText
+      } else if (columnName.includes('billing period') || columnName.includes('billingperiod')) {
+        const lowerText = cellText.toLowerCase()
+        if (lowerText === 'yr' || lowerText.includes('year') || lowerText.includes('annual')) {
+          option.price.period = 'yr'
+        } else if (lowerText === 'once' || lowerText.includes('one-time') || lowerText.includes('onetime')) {
+          option.price.period = 'once'
+        } else if (lowerText === 'custom') {
+          option.price.period = 'custom'
+        } else {
+          option.price.period = 'mo'
         }
-      } else if (rowLabel.includes('badge') || rowLabel.includes('popular') || rowLabel.includes('recommended')) {
-        // This is badge information
-        const option = options[optionIndex]
-        if (cellText && cellText.toLowerCase() !== 'none' && cellText !== '-' && option) {
+      } else if (columnName.includes('custom period') || columnName.includes('customperiod')) {
+        if (cellText) {
+          option.price.period = 'custom'
+          option.price.customPeriod = cellText
+        }
+      } else if (columnName.includes('badge')) {
+        if (cellText && cellText.toLowerCase() !== 'none' && cellText !== '-') {
           option.badge = { text: cellText }
         }
-      } else if (rowLabel.includes('billing period') || rowLabel.includes('billingperiod') || 
-                 rowLabel.includes('payment period') || rowLabel.includes('paymentperiod') ||
-                 rowLabel.includes('billing frequency') || rowLabel.includes('billingfrequency') ||
-                 (rowLabel.includes('billing') && rowLabel.includes('period')) ||
-                 (rowLabel.includes('payment') && rowLabel.includes('period'))) {
-        // This is billing period information
-        const option = options[optionIndex]
-        if (option && cellText) {
-          // Parse billing period from cell text
-          let period: 'mo' | 'yr' | 'once' | 'custom' = 'mo'
-          let customPeriod: string | undefined
-          
+      } else if (columnName.includes('highlight') && columnName.includes('text')) {
+        // Extract highlight number from column name (e.g., "highlight 1 text" -> 1)
+        const highlightMatch = columnName.match(/highlight\s*(\d+)\s*text/i)
+        const highlightIndex = highlightMatch && highlightMatch[1] ? parseInt(highlightMatch[1], 10) - 1 : highlights.length
+        
+        // Determine icon based on content or look for corresponding icon column
+        let icon: 'check' | 'lightning' | 'rocket' | 'chart' | 'lock' | 'star' = 'check'
+        
+        // Look for corresponding icon column
+        const iconColIndex = Object.entries(columnMap).find(([idx, name]) => 
+          name.includes(`highlight`) && name.includes(`${highlightIndex + 1}`) && name.includes('icon')
+        )?.[0]
+        
+        if (iconColIndex !== undefined) {
+          const iconCell = cells[parseInt(iconColIndex, 10)]
+          const iconText = extractTextFromStructuralElements(iconCell?.content).trim().toLowerCase()
+          if (iconText === 'lightning') icon = 'lightning'
+          else if (iconText === 'rocket') icon = 'rocket'
+          else if (iconText === 'chart') icon = 'chart'
+          else if (iconText === 'lock') icon = 'lock'
+          else if (iconText === 'star') icon = 'star'
+          else icon = 'check'
+        } else {
+          // Auto-assign icon based on content
           const lowerText = cellText.toLowerCase()
-          if (lowerText.includes('year') || lowerText.includes('annual') || lowerText.includes('yearly')) {
-            period = 'yr'
-          } else if (lowerText.includes('month') || lowerText.includes('monthly')) {
-            period = 'mo'
-          } else if (lowerText.includes('once') || lowerText.includes('one-time') || lowerText.includes('onetime') || lowerText.includes('one time')) {
-            period = 'once'
-          } else {
-            // Only set customPeriod for truly custom periods
-            period = 'custom'
-            customPeriod = cellText
+          if (lowerText.includes('fast') || lowerText.includes('speed') || lowerText.includes('quick')) {
+            icon = 'lightning'
+          } else if (lowerText.includes('launch') || lowerText.includes('deploy') || lowerText.includes('boost')) {
+            icon = 'rocket'
+          } else if (lowerText.includes('analytics') || lowerText.includes('report') || lowerText.includes('data')) {
+            icon = 'chart'
+          } else if (lowerText.includes('secure') || lowerText.includes('private') || lowerText.includes('protected')) {
+            icon = 'lock'
+          } else if (lowerText.includes('premium') || lowerText.includes('best') || lowerText.includes('featured')) {
+            icon = 'star'
           }
-          
-          // Update the existing price object with the billing period
-          const updatedPrice = {
-            ...option.price,
-            period
-          }
-          
-          // Only add customPeriod if it exists, otherwise ensure it's not in the object
-          if (customPeriod) {
-            updatedPrice.customPeriod = customPeriod
-          } else {
-            delete updatedPrice.customPeriod
-          }
-          
-          option.price = updatedPrice
-          console.log('🔍 Set billing period for option', optionIndex, ':', period, customPeriod ? `(${customPeriod})` : '')
         }
-      } else if (rowLabel.includes('highlight') || rowLabel.includes('feature') || rowLabel.includes('includes')) {
-        // This is highlights/features information
-        const highlights = parseHighlights(cellText)
-        const option = options[optionIndex]
-        if (highlights && highlights.length > 0 && option) {
-          option.highlights = highlights
+        
+        highlights[highlightIndex] = {
+          _key: genKey(),
+          text: cellText,
+          icon
         }
+      } else if (columnName.includes('highlight') && columnName.includes('icon')) {
+        // Icon columns are processed together with text columns above
+        // Skip standalone processing
       }
+    }
+    
+    // Add collected highlights to option (filter out empty slots)
+    const validHighlights = highlights.filter(h => h && h.text)
+    if (validHighlights.length > 0) {
+      option.highlights = validHighlights
+    }
+    
+    // Only add option if it has a name
+    if (option.name) {
+      options.push(option)
+      console.log('🔍 Added pricing option:', JSON.stringify(option, null, 2))
     }
   }
   
@@ -1096,6 +1449,14 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
               console.log('🔍 PRICING TABLE DETECTED - converting to pricingTable module')
               const pricingTableNode = convertPricingTable(table, doc)
               blocks.push(pricingTableNode)
+            } else if (isScopeTable(table)) {
+              console.log('🔍 SCOPE TABLE DETECTED - converting to scopeTable module')
+              const scopeTableNode = convertScopeTable(table, doc)
+              blocks.push(scopeTableNode)
+            } else if (isGanttChart(table)) {
+              console.log('🔍 GANTT CHART DETECTED - converting to ganttChart module')
+              const ganttChartNode = convertGanttChart(table, doc)
+              blocks.push(ganttChartNode)
             } else if (isCalloutModule(table)) {
               console.log('🔍 CALLOUT MODULE DETECTED - converting to callout module')
               const calloutNode = convertCalloutModule(table, doc)
@@ -1298,6 +1659,14 @@ function convertToPortableText(doc: GoogleDocsDocument): { title: string; tabs: 
           console.log('🔍 FALLBACK: PRICING TABLE DETECTED - converting to pricingTable module')
           const pricingTableNode = convertPricingTable(table, doc)
           blocks.push(pricingTableNode)
+        } else if (isScopeTable(table)) {
+          console.log('🔍 FALLBACK: SCOPE TABLE DETECTED - converting to scopeTable module')
+          const scopeTableNode = convertScopeTable(table, doc)
+          blocks.push(scopeTableNode)
+        } else if (isGanttChart(table)) {
+          console.log('🔍 FALLBACK: GANTT CHART DETECTED - converting to ganttChart module')
+          const ganttChartNode = convertGanttChart(table, doc)
+          blocks.push(ganttChartNode)
         } else if (isCalloutModule(table)) {
           console.log('🔍 FALLBACK: CALLOUT MODULE DETECTED - converting to callout module')
           const calloutNode = convertCalloutModule(table, doc)
