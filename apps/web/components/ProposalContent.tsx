@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import { usePathname } from 'next/navigation'
 // import dynamic from 'next/dynamic' // Temporarily disabled
 import { Tabs } from '@/components/ui/tabs'
@@ -110,6 +110,10 @@ export default function ProposalContent({
   const [indicatorStyle, setIndicatorStyle] = useState({ top: 0, height: 0 })
   const [copied, setCopied] = useState(false)
   const [activeTabIndex, setActiveTabIndex] = useState(initialTabIndex)
+  const [expandedTabIndex, setExpandedTabIndex] = useState<number | null>(null)
+  const [tabIndicatorStyle, setTabIndicatorStyle] = useState({ top: 0, height: 0, opacity: 0 })
+  const tabButtonRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const navContainerRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
 
   // Track proposal viewed on mount
@@ -154,6 +158,15 @@ export default function ProposalContent({
 
   // Navigate to tab - SPA style with URL update (no full page reload)
   const navigateToTab = useCallback((tabIndex: number) => {
+    // If clicking the already active tab, toggle the sub-tree expansion
+    if (tabIndex === activeTabIndex) {
+      setExpandedTabIndex(prev => prev === tabIndex ? null : tabIndex)
+      return
+    }
+    
+    // Collapse sub-tree when switching tabs
+    setExpandedTabIndex(null)
+    
     const tab = tabs[tabIndex]
     let newUrl: string
     
@@ -172,15 +185,19 @@ export default function ProposalContent({
         : `/${proposalSlug}`
     }
     
-    // Update URL without full page reload (SPA-style navigation)
-    window.history.pushState({ tabIndex }, '', newUrl)
-    
-    // Update local state
+    // Update local state first for instant UI response
     setActiveTabIndex(tabIndex)
     
-    // Scroll to top of content
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [tabs, proposalSlug, pathname, generateTabSlug])
+    // Scroll to top of content instantly
+    window.scrollTo({ top: 0, behavior: 'instant' })
+    
+    // Update URL without triggering Next.js navigation
+    // Use replaceState first to set state, then pushState in next frame
+    window.history.replaceState({ ...window.history.state, tabIndex, __NA: true }, '')
+    requestAnimationFrame(() => {
+      window.history.pushState({ tabIndex, __NA: true }, '', newUrl)
+    })
+  }, [tabs, proposalSlug, pathname, generateTabSlug, activeTabIndex])
 
   // Handle browser back/forward navigation
   useEffect(() => {
@@ -204,6 +221,29 @@ export default function ProposalContent({
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [proposalSlug, getTabIndexFromSlug])
+
+  // Update tab indicator position when active tab changes
+  useLayoutEffect(() => {
+    const updateIndicator = () => {
+      const activeButton = tabButtonRefs.current[activeTabIndex]
+      const container = navContainerRef.current
+      
+      if (activeButton && container) {
+        const containerRect = container.getBoundingClientRect()
+        const buttonRect = activeButton.getBoundingClientRect()
+        
+        setTabIndicatorStyle({
+          top: buttonRect.top - containerRect.top,
+          height: buttonRect.height,
+          opacity: 1
+        })
+      }
+    }
+    
+    // Small delay to ensure DOM is ready
+    const timeoutId = setTimeout(updateIndicator, 10)
+    return () => clearTimeout(timeoutId)
+  }, [activeTabIndex])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -498,28 +538,28 @@ export default function ProposalContent({
           </div>
 
         {/* Fixed Sidebar - Table of Contents with Outline */}
-        <div className="fixed right-0 top-0 w-80 h-screen bg-black text-white border-l border-white z-30 overflow-hidden">
+        <div className="fixed right-0 top-0 w-80 h-screen bg-white text-gray-900 border-l border-gray-200 z-30 overflow-hidden">
           <div className="p-6">
             {/* Prepared for section */}
             {company ? (
               <div className="mb-8">
-                <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
                   Prepared for
                 </h3>
                 <div className="flex items-center space-x-3">
-                  <Logo company={company} size={125} theme="dark" />
+                  <Logo company={company} size={125} theme="light" />
                 </div>
               </div>
             ) : (
               <div className="mb-8">
-                <p className="text-gray-400 text-sm">No company data found</p>
+                <p className="text-gray-500 text-sm">No company data found</p>
               </div>
             )}
             
             {/* Prepared by section */}
             {preparedBy && (
-              <div className="mb-8 pb-6 border-b border-gray-700">
-                <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">
+              <div className="mb-8 pb-6 border-b border-gray-200">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
                   Prepared by
                 </h3>
                 <div className="flex items-center space-x-3">
@@ -534,50 +574,60 @@ export default function ProposalContent({
                       />
                     </div>
                   ) : (
-                    <div className="flex-shrink-0 w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">
+                    <div className="flex-shrink-0 w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                      <span className="text-gray-600 text-sm font-bold">
                         {preparedBy.firstName.charAt(0)}{preparedBy.lastName.charAt(0)}
                       </span>
                     </div>
                   )}
                   <div>
-                    <p className="text-white font-medium text-sm">
+                    <p className="text-gray-900 font-medium text-sm">
                       {preparedBy.firstName} {preparedBy.lastName}
                     </p>
                     {preparedBy.role && (
-                      <p className="text-gray-400 text-xs">{preparedBy.role}</p>
+                      <p className="text-gray-500 text-xs">{preparedBy.role}</p>
                     )}
                   </div>
                 </div>
               </div>
             )}
             
-            <h3 className="text-xs font-semibold text-white uppercase tracking-wider mb-6">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-6">
               Contents
             </h3>
             
             {outline && outline.length > 0 ? (
-              <nav className="space-y-1">
-                {outline.map((section) => (
-                  <div key={section.tabIndex} className="mb-2">
+              <nav ref={navContainerRef} className="space-y-1 relative">
+                {/* Sliding indicator pill */}
+                <div 
+                  className="absolute left-0 right-0 bg-blue-600 rounded-full transition-all duration-300 ease-out z-0"
+                  style={{
+                    top: `${tabIndicatorStyle.top}px`,
+                    height: `${tabIndicatorStyle.height}px`,
+                    opacity: tabIndicatorStyle.opacity
+                  }}
+                />
+                {outline.map((section, index) => (
+                  <div key={section.tabIndex} className="mb-2 relative z-10">
                     {/* Main section/tab */}
                     <button
+                      ref={(el) => { tabButtonRefs.current[index] = el }}
                       onClick={() => navigateToTab(section.tabIndex)}
                       className={cn(
-                        "flex items-center w-full text-left px-3 py-2 rounded-full transition-all duration-200 text-sm font-medium group",
+                        "flex items-center w-full text-left px-3 py-2 rounded-full transition-colors duration-200 text-sm font-medium group",
                         activeTabIndex === section.tabIndex
-                          ? "bg-blue-600 text-white"
-                          : "text-white hover:bg-white hover:bg-opacity-10"
+                          ? "text-white"
+                          : "text-gray-700 hover:bg-gray-100"
                       )}
                     >
                       <span className="truncate">{section.title}</span>
                     </button>
                     
-                    {/* Headings within this section with vertical line */}
-                    {section.headings.length > 0 && activeTabIndex === section.tabIndex && (
+                    {/* Headings within this section with vertical line - only show when expanded */}
+                    {section.headings.length > 0 && expandedTabIndex === section.tabIndex && (
                       <div className="relative ml-5 mt-2">
-                        {/* White vertical line */}
-                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-white"></div>
+                        {/* Gray vertical line */}
+                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-300"></div>
                         
                         <div className="pl-4 space-y-1 relative">
                           {/* Single sliding blue indicator */}
@@ -596,13 +646,13 @@ export default function ProposalContent({
                               data-heading-id={heading.id}
                               onClick={() => scrollToHeading(heading.id)}
                               className={cn(
-                                "block w-full text-left py-1 px-2 text-sm text-white",
+                                "block w-full text-left py-1 px-2 text-sm text-gray-600 hover:text-gray-900",
                                 heading.level === 'h1' 
                                   ? "font-medium"
                                   : heading.level === 'h2' 
-                                    ? "ml-2 opacity-90"
-                                    : "ml-4 opacity-80",
-                                activeHeadingId === heading.id && "opacity-100"
+                                    ? "ml-2"
+                                    : "ml-4",
+                                activeHeadingId === heading.id && "text-gray-900 font-medium"
                               )}
                             >
                               {heading.text}
@@ -615,8 +665,8 @@ export default function ProposalContent({
                 ))}
               </nav>
             ) : (
-              <div className="text-white text-center py-8">
-                <FileText className="h-8 w-8 mx-auto mb-2 opacity-100" />
+              <div className="text-gray-500 text-center py-8">
+                <FileText className="h-8 w-8 mx-auto mb-2" />
                 <p className="text-sm">No sections available</p>
               </div>
             )}
