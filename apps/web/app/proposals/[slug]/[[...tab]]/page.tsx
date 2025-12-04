@@ -175,43 +175,13 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
     <ProposalContent
       tabs={proposal.tabs || []}
       proposalSlug={proposalSlug}
-      activeTabIndex={activeTabIndex}
+      initialTabIndex={activeTabIndex}
       company={proposal.company}
-      googleDocUrl={proposal.googleDoc}
       calendarLink={proposal.calendarLink}
       preparedBy={proposal.preparedBy}
     />
   )
 }
 
-export async function generateStaticParams() {
-  // Fetch all proposals with their seo slugs and tabs
-  const proposals = await client.fetch(groq`*[_type == "proposal"]{
-    _id,
-    "slug": seo.slug,
-    tabs[]{
-      title
-    }
-  }`)
-  
-  const params: { slug: string; tab?: string[] }[] = []
-  
-  proposals.forEach((proposal: { _id: string; slug?: { current: string }; tabs?: Array<{ title?: string }> }) => {
-    const proposalSlug = proposal.slug?.current || proposal._id
-    
-    // Add main proposal route (shows first tab)
-    params.push({ slug: proposalSlug })
-    
-    // Add routes for each tab
-    if (proposal.tabs) {
-      proposal.tabs.forEach((tab) => {
-        if (tab.title) {
-          const tabSlug = tab.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-          params.push({ slug: proposalSlug, tab: [tabSlug] })
-        }
-      })
-    }
-  })
-  
-  return params
-}
+// SSG removed - using SPA-style client-side tab navigation
+// Tab URLs are handled client-side via window.history.pushState

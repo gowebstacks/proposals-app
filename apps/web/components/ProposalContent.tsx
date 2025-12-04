@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 // import dynamic from 'next/dynamic' // Temporarily disabled
 import { Tabs } from '@/components/ui/tabs'
 // import { Button } from '@/components/ui/button' // Temporarily disabled
@@ -91,7 +91,7 @@ interface Person {
 interface ProposalContentProps {
   tabs: Tab[]
   proposalSlug: string
-  activeTabIndex: number
+  initialTabIndex: number
   company?: Company
   calendarLink?: string
   preparedBy?: Person
@@ -100,7 +100,7 @@ interface ProposalContentProps {
 export default function ProposalContent({
   tabs,
   proposalSlug,
-  activeTabIndex,
+  initialTabIndex,
   company,
   calendarLink,
   preparedBy
@@ -109,7 +109,8 @@ export default function ProposalContent({
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
   const [indicatorStyle, setIndicatorStyle] = useState({ top: 0, height: 0 })
   const [copied, setCopied] = useState(false)
-  const router = useRouter()
+  const [activeTabIndex, setActiveTabIndex] = useState(initialTabIndex)
+  const pathname = usePathname()
 
   // Track proposal viewed on mount
   useEffect(() => {
@@ -138,21 +139,71 @@ export default function ProposalContent({
   }, [activeTabIndex, proposalSlug, tabs])
 
   // Generate tab slug from title
-  const generateTabSlug = (title: string) => {
+  const generateTabSlug = useCallback((title: string) => {
     return title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-  }
+  }, [])
 
-  // Navigate to tab
-  const navigateToTab = (tabIndex: number) => {
+  // Get tab index from URL slug
+  const getTabIndexFromSlug = useCallback((tabSlug: string | null): number => {
+    if (!tabSlug || !tabs) return 0
+    const foundIndex = tabs.findIndex((tab) => 
+      tab.title && generateTabSlug(tab.title) === tabSlug
+    )
+    return foundIndex !== -1 ? foundIndex : 0
+  }, [tabs, generateTabSlug])
+
+  // Navigate to tab - SPA style with URL update (no full page reload)
+  const navigateToTab = useCallback((tabIndex: number) => {
     const tab = tabs[tabIndex]
+    let newUrl: string
+    
     if (tab?.title) {
       const tabSlug = generateTabSlug(tab.title)
-      router.push(`/proposals/${proposalSlug}/${tabSlug}`)
-    } else if (tabIndex === 0) {
+      // Determine base path (could be /proposals/slug or /slug)
+      const isProposalsPath = pathname?.startsWith('/proposals/')
+      newUrl = isProposalsPath 
+        ? `/proposals/${proposalSlug}/${tabSlug}`
+        : `/${proposalSlug}/${tabSlug}`
+    } else {
       // Fallback for first tab without title
-      router.push(`/proposals/${proposalSlug}`)
+      const isProposalsPath = pathname?.startsWith('/proposals/')
+      newUrl = isProposalsPath 
+        ? `/proposals/${proposalSlug}`
+        : `/${proposalSlug}`
     }
-  }
+    
+    // Update URL without full page reload (SPA-style navigation)
+    window.history.pushState({ tabIndex }, '', newUrl)
+    
+    // Update local state
+    setActiveTabIndex(tabIndex)
+    
+    // Scroll to top of content
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [tabs, proposalSlug, pathname, generateTabSlug])
+
+  // Handle browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state?.tabIndex !== undefined) {
+        setActiveTabIndex(event.state.tabIndex)
+      } else {
+        // Parse tab from URL if no state
+        const pathParts = window.location.pathname.split('/')
+        const tabSlug = pathParts[pathParts.length - 1]
+        // Check if it's a tab slug or the proposal slug
+        if (tabSlug !== proposalSlug) {
+          const tabIndex = getTabIndexFromSlug(tabSlug || null)
+          setActiveTabIndex(tabIndex)
+        } else {
+          setActiveTabIndex(0)
+        }
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [proposalSlug, getTabIndexFromSlug])
 
   useEffect(() => {
     const handleScroll = () => {
