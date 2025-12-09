@@ -873,15 +873,18 @@ function GanttChartComponent({ value }: { value: SanityGanttChartNode }) {
     }
 
     // Transform Sanity tasks to Frappe Gantt format
-    const tasks = value.tasks.map((task, index) => ({
-      id: `task-${index}`,
-      name: task.name,
-      start: task.startDate,
-      end: task.endDate,
-      progress: task.progress || 0,
-      dependencies: task.dependencies || '',
-      custom_class: task.color || 'blue',
-    }))
+    const tasks = value.tasks.map((task, index) => {
+      console.log(`📊 Task ${index}:`, { name: task.name, startDate: task.startDate, endDate: task.endDate })
+      return {
+        id: `task-${index}`,
+        name: task.name,
+        start: task.startDate,
+        end: task.endDate,
+        progress: task.progress || 0,
+        dependencies: task.dependencies || '',
+        custom_class: task.color || 'blue',
+      }
+    })
 
     // Create new Gantt instance
     try {

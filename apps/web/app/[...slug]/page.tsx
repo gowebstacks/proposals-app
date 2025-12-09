@@ -121,6 +121,17 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
             title,
             thumbnail
           }
+        },
+        _type == "ganttChart" => {
+          ...,
+          tasks[]{
+            _key,
+            name,
+            startDate,
+            endDate,
+            progress,
+            dependencies
+          }
         }
       }
     },
