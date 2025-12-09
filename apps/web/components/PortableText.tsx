@@ -841,7 +841,8 @@ function ReelCarouselComponent({ value }: { value: SanityReelCarouselNode }) {
 function GanttChartComponent({ value }: { value: SanityGanttChartNode }) {
   const ganttRef = useRef<HTMLDivElement>(null)
   const ganttInstance = useRef<typeof Gantt | null>(null)
-  const [currentViewMode, setCurrentViewMode] = useState<string>(value.viewMode || 'Day')
+  // Default to Week view - Month view has known positioning bugs in Frappe Gantt
+  const [currentViewMode, setCurrentViewMode] = useState<string>(value.viewMode === 'Month' ? 'Week' : (value.viewMode || 'Week'))
 
   // Load Frappe Gantt CSS dynamically
   useEffect(() => {
@@ -894,7 +895,7 @@ function GanttChartComponent({ value }: { value: SanityGanttChartNode }) {
         bar_corner_radius: 3,
         arrow_curve: 5,
         padding: 18,
-        view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month', 'Year'],
+        view_modes: ['Week'],
         date_format: 'YYYY-MM-DD',
         infinite_padding: false,
         readonly: true,
@@ -959,7 +960,7 @@ function GanttChartComponent({ value }: { value: SanityGanttChartNode }) {
 
   if (!value.tasks || value.tasks.length === 0) return null
 
-  const viewModes = ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month', 'Year']
+  const viewModes = ['Week']
 
   return (
     <div className="col-span-8 py-6">
