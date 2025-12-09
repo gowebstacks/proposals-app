@@ -970,22 +970,24 @@ function GanttChartComponent({ value }: { value: SanityGanttChartNode }) {
         </h3>
       )}
       
-      {/* View Mode Switcher */}
-      <div className="flex gap-2 mb-4">
-        {viewModes.map((mode) => (
-          <button
-            key={mode}
-            onClick={() => changeViewMode(mode)}
-            className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
-              currentViewMode === mode
-                ? 'bg-black text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {mode}
-          </button>
-        ))}
-      </div>
+      {/* View Mode Switcher - hidden when only one mode */}
+      {viewModes.length > 1 && (
+        <div className="flex gap-2 mb-4">
+          {viewModes.map((mode) => (
+            <button
+              key={mode}
+              onClick={() => changeViewMode(mode)}
+              className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                currentViewMode === mode
+                  ? 'bg-black text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="gantt-container bg-white rounded-lg border border-gray-200 p-4 overflow-x-auto">
         <div ref={ganttRef}></div>
